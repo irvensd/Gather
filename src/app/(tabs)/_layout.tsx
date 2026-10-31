@@ -22,6 +22,7 @@ export default function TabsLayout() {
       <NativeTabs
         activityEnabled
         backgroundColor={theme.colors.background}
+        disableTransparentOnScrollEdge
         hidden={hidden}
         iconColor={{ default: theme.colors.secondary, selected: theme.colors.primary }}
         indicatorColor={theme.colors.highlight}

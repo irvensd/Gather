@@ -20,15 +20,22 @@ export default function ProfileScreen() {
   if (!session || !profile) {
     return (
       <ScreenContainer>
-        <EmptyState actionLabel="Sign in" message="You can read every conversation without an account. Sign in to post, reply, vote, save, or report." onAction={() => router.push('/(auth)/sign-in')} title="No account yet" />
-        <Text onPress={() => router.push('/(auth)/sign-up')} style={[theme.type.body, { color: theme.colors.primary, textAlign: 'center' }]}>Create an account</Text>
+        <EmptyState
+          actionLabel="Sign in"
+          message="You can read every conversation without an account. Sign in to post, reply, vote, save, or report."
+          onAction={() => router.push('/(auth)/sign-in')}
+          title="No account yet"
+        />
+        <Text onPress={() => router.push('/(auth)/sign-up')} style={[theme.type.body, { color: theme.colors.primary, textAlign: 'center' }]}>
+          Create an account
+        </Text>
       </ScreenContainer>
     );
   }
   const canModerate = !!capabilities.data && (capabilities.data.isAdmin || capabilities.data.communityIds.length > 0);
   return (
     <ScreenContainer>
-      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingRight: theme.spacing.xs }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingRight: theme.spacing.xs, minHeight: theme.layout.touchTarget }}>
         {canModerate ? (
           <Pressable onPress={() => router.push('/moderation')} style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 }}>
             <Text style={[theme.type.caption, { color: theme.colors.primary, fontWeight: '600' }]}>Moderation</Text>
@@ -36,7 +43,7 @@ export default function ProfileScreen() {
         ) : null}
         <IconButton label="Settings" name="settings-outline" onPress={() => router.push('/settings')} />
       </View>
-      <ProfileBody username={profile.username} />
+      <ProfileBody isSelf username={profile.username} />
     </ScreenContainer>
   );
 }

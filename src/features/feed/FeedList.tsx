@@ -6,6 +6,7 @@ import { FlatList, RefreshControl, Text, View } from 'react-native';
 import { PostCard } from '@/components/feed/PostCard';
 import { EmptyFeedState } from '@/components/ui/EmptyFeedState';
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
+import { useTabContentPadding } from '@/features/navigation/useTabContentPadding';
 import { useContentActions } from '@/features/posts/actions';
 import { getApi } from '@/lib/backend';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -23,6 +24,7 @@ export function FeedList({
   notice?: string | null;
 }) {
   const theme = useTheme();
+  const tabPadding = useTabContentPadding();
   const [refreshing, setRefreshing] = useState(false);
   const actions = useContentActions(communityId ? `/community/${communityId}` : '/');
   const feed = useInfiniteQuery({
@@ -59,7 +61,7 @@ export function FeedList({
             </View>
           ) : undefined
         }
-        contentContainerStyle={{ paddingBottom: 120, flexGrow: posts.length === 0 ? 1 : undefined }}
+        contentContainerStyle={{ paddingBottom: tabPadding, flexGrow: posts.length === 0 ? 1 : undefined }}
         data={posts}
         keyExtractor={(item) => item.id}
         onEndReached={() => {

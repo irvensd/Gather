@@ -23,12 +23,24 @@ export function VoteControl({
     onVote(next);
   };
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-      <Pressable accessibilityLabel="Upvote" disabled={disabled} hitSlop={8} onPress={() => press(1)} style={{ paddingVertical: 4, paddingRight: 4 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: theme.layout.touchTarget }}>
+      <Pressable
+        accessibilityLabel="Upvote"
+        disabled={disabled}
+        hitSlop={theme.layout.hitSlop}
+        onPress={() => press(1)}
+        style={{ width: 36, height: theme.layout.touchTarget, alignItems: 'center', justifyContent: 'center' }}
+      >
         <Ionicons color={value === 1 ? theme.colors.primary : theme.colors.secondary} name={value === 1 ? 'arrow-up' : 'arrow-up-outline'} size={18} />
       </Pressable>
-      <Text style={[theme.type.caption, { color: value === 0 ? theme.colors.secondary : theme.colors.text, minWidth: 16, textAlign: 'center', fontWeight: '600' }]}>{score}</Text>
-      <Pressable accessibilityLabel="Downvote" disabled={disabled} hitSlop={8} onPress={() => press(-1)} style={{ paddingVertical: 4, paddingLeft: 4 }}>
+      <Text style={[theme.type.caption, { color: value === 0 ? theme.colors.secondary : theme.colors.text, minWidth: 20, textAlign: 'center', fontWeight: '600' }]}>{score}</Text>
+      <Pressable
+        accessibilityLabel="Downvote"
+        disabled={disabled}
+        hitSlop={theme.layout.hitSlop}
+        onPress={() => press(-1)}
+        style={{ width: 36, height: theme.layout.touchTarget, alignItems: 'center', justifyContent: 'center' }}
+      >
         <Ionicons color={value === -1 ? theme.colors.danger : theme.colors.secondary} name={value === -1 ? 'arrow-down' : 'arrow-down-outline'} size={18} />
       </Pressable>
     </View>

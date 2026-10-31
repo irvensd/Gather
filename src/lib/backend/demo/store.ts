@@ -706,14 +706,20 @@ export class DemoStore implements GatherApi {
         .map((item): AppNotification => {
           const actor = this.state.users.find((person) => person.id === item.actorId);
           const post = this.state.posts.find((entry) => entry.id === item.postId);
+          const comment = this.state.comments.find((entry) => entry.id === item.commentId);
+          const actorVisible = actor && actor.status !== 'deleted';
           return {
             id: item.id,
             type: item.type,
-            actorId: actor && actor.status !== 'deleted' ? actor.id : null,
-            actorUsername: actor && actor.status !== 'deleted' ? actor.username : null,
-            actorDisplayName: actor && actor.status !== 'deleted' ? actor.displayName : null,
+            actorId: actorVisible ? actor.id : null,
+            actorUsername: actorVisible ? actor.username : null,
+            actorDisplayName: actorVisible ? actor.displayName : null,
+            actorAvatarPath: actorVisible ? actor.avatarPath : null,
             postId: item.postId,
             postType: post?.type ?? null,
+            postTitle: post?.title ?? null,
+            postExcerpt: post?.body ?? null,
+            commentExcerpt: comment?.body ?? null,
             commentId: item.commentId,
             isRead: item.isRead,
             createdAt: item.createdAt,

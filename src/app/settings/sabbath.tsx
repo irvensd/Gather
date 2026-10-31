@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 
+import { AppHeader } from '@/components/ui/AppHeader';
 import { IconButton } from '@/components/ui/IconButton';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { formatSabbathTime, SABBATH_PLACES, sabbathPlaceById, sabbathWindow } from '@/lib/sabbath';
@@ -17,10 +18,7 @@ export default function SabbathQuietScreen() {
   const window = sabbathWindow(new Date(), place);
   return (
     <ScreenContainer>
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <IconButton label="Back" name="chevron-back" onPress={() => router.back()} />
-        <Text style={[theme.type.section, { color: theme.colors.text }]}>Sabbath quiet</Text>
-      </View>
+      <AppHeader left={<IconButton label="Back" name="chevron-back" onPress={() => router.back()} />} title="Sabbath quiet" />
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, gap: theme.spacing.lg }}>
         <Text style={[theme.type.body, { color: theme.colors.secondary }]}>
           A preview of how replies would rest from Friday sunset to Saturday sunset. Nothing is sent to a server, and phone alerts are not delivered yet.
