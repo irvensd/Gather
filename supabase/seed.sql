@@ -1,0 +1,4 @@
+-- Curated communities are inserted by the initial migration.
+-- Do not add fictional users, testimonials, or engagement here.
+-- Launch discussions should be written by the team through the app after production accounts exist.
+-- On-device sample posts live only in the demo backend and never reach this database.

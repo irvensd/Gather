@@ -1,0 +1,13 @@
+appId: com.gather.community
+---
+- launchApp
+- tapOn:
+    id: welcome-browse
+- assertVisible: Gather
+- tapOn:
+    id: post-card
+- tapOn:
+    id: comment-input
+- tapOn:
+    id: comment-submit
+- assertVisible: Create an account

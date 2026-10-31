@@ -1,0 +1,10 @@
+appId: com.gather.community
+---
+- launchApp
+- tapOn:
+    id: post-card
+- tapOn: Report
+- tapOn: Harassment
+- tapOn:
+    id: report-submit
+- assertVisible: Report sent

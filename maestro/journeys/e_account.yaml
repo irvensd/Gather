@@ -1,0 +1,10 @@
+appId: com.gather.community
+---
+- launchApp
+- tapOn: Profile
+- tapOn: Settings
+- tapOn: Blocked accounts
+- tapOn: Delete account
+- tapOn:
+    id: delete-confirm
+- assertVisible: Delete account

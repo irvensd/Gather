@@ -1,0 +1,11 @@
+appId: com.gather.community
+---
+- launchApp
+- tapOn: Explore
+- tapOn:
+    id: explore-search
+- inputText: Relationships
+- tapOn: c/Relationships
+- tapOn:
+    id: community-join
+- assertVisible: Joined
