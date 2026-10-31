@@ -2,13 +2,14 @@ import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { useColorScheme } from 'react-native';
 
 import { usePreferences } from '@/store/preferences';
-import { palette, radius, spacing, type, type ThemeColors } from '@/theme/tokens';
+import { layout, palette, radius, spacing, type, type ThemeColors } from '@/theme/tokens';
 
 export interface GatherTheme {
   scheme: 'light' | 'dark';
   colors: ThemeColors;
   spacing: typeof spacing;
   radius: typeof radius;
+  layout: typeof layout;
   type: typeof type;
 }
 
@@ -24,6 +25,7 @@ export function GatherThemeProvider({ children }: { children: ReactNode }) {
       colors: palette[scheme],
       spacing,
       radius,
+      layout,
       type,
     }),
     [scheme],

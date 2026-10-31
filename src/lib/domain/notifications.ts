@@ -48,6 +48,16 @@ export function formatNotification(input: {
   return `${actor} replied to your post.`;
 }
 
+export function notificationContext(input: {
+  postTitle?: string | null;
+  postExcerpt?: string | null;
+  commentExcerpt?: string | null;
+}): { title: string | null; excerpt: string | null } {
+  const title = input.postTitle?.trim() || null;
+  const excerpt = (input.commentExcerpt || input.postExcerpt || '').replace(/\s+/g, ' ').trim();
+  return { title, excerpt: excerpt.length > 0 ? excerpt : null };
+}
+
 export function allowsNotification(type: NotificationType, preferences: { replies: boolean; mentions: boolean }): boolean {
   if (type === 'mention') return preferences.mentions;
   return preferences.replies;

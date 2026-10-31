@@ -18,9 +18,11 @@ export function ScriptureReference({
       onPress={() => onPress(reference)}
       style={{
         backgroundColor: theme.colors.highlight,
-        borderRadius: theme.radius.sm,
-        paddingHorizontal: 10,
-        paddingVertical: 6,
+        borderRadius: theme.radius.pill,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        minHeight: 28,
+        justifyContent: 'center',
       }}
     >
       <Text style={[theme.type.caption, { color: theme.colors.primary, fontWeight: '600' }]}>{reference.raw}</Text>

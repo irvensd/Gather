@@ -1,5 +1,8 @@
+import { router } from 'expo-router';
 import { ScrollView, Text, View } from 'react-native';
 
+import { AppHeader } from '@/components/ui/AppHeader';
+import { IconButton } from '@/components/ui/IconButton';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { ACCOUNT_DELETION_POLICY, COMMUNITY_GUIDELINES } from '@/constants/guidelines';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -8,8 +11,8 @@ export default function GuidelinesScreen() {
   const theme = useTheme();
   return (
     <ScreenContainer>
-      <ScrollView contentContainerStyle={{ padding: theme.spacing.xl, gap: theme.spacing.lg }}>
-        <Text style={[theme.type.title, { color: theme.colors.text }]}>Community guidelines</Text>
+      <AppHeader left={<IconButton label="Back" name="chevron-back" onPress={() => router.back()} />} title="Privacy and guidelines" />
+      <ScrollView contentContainerStyle={{ paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.xl, gap: theme.spacing.lg }}>
         {COMMUNITY_GUIDELINES.map((item) => (
           <View key={item.title} style={{ gap: 4 }}>
             <Text style={[theme.type.section, { color: theme.colors.text }]}>{item.title}</Text>

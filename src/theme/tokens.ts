@@ -60,6 +60,20 @@ export const radius = {
   pill: 999,
 } as const;
 
+export const layout = {
+  hitSlop: 8,
+  touchTarget: 44,
+  tabBarHeight: 64,
+  tabBarGap: 24,
+  previewLines: 3,
+  scriptureChipLimit: 3,
+} as const;
+
+/** Extra list padding so the last row clears the floating tab bar and home indicator. */
+export function tabContentPadding(safeBottom: number): number {
+  return layout.tabBarHeight + layout.tabBarGap + Math.max(safeBottom, 8);
+}
+
 const fontFamily = Platform.select({ ios: 'System', android: 'sans-serif', default: 'System' });
 
 export const type = {

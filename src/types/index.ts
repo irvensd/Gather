@@ -99,8 +99,12 @@ export interface AppNotification {
   actorId: string | null;
   actorUsername: string | null;
   actorDisplayName: string | null;
+  actorAvatarPath?: string | null;
   postId: string | null;
   postType: PostType | null;
+  postTitle?: string | null;
+  postExcerpt?: string | null;
+  commentExcerpt?: string | null;
   commentId: string | null;
   isRead: boolean;
   createdAt: string;

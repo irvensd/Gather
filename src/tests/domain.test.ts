@@ -1,7 +1,9 @@
 import { LIMITS } from '@/constants/limits';
 import { buildCommentForest, flattenForDisplay, wouldExceedDepth } from '@/lib/domain/comments';
-import { hotScore, sortFeed } from '@/lib/domain/feed';
-import { allowsNotification, commentNotificationIntents, extractMentions, formatNotification } from '@/lib/domain/notifications';
+import { isPostReady } from '@/lib/domain/composer';
+import { suggestedCommunities } from '@/lib/domain/explore';
+import { bodyPreview, hotScore, sortFeed } from '@/lib/domain/feed';
+import { allowsNotification, commentNotificationIntents, extractMentions, formatNotification, notificationContext } from '@/lib/domain/notifications';
 import { paginate } from '@/lib/domain/pagination';
 import { canModerate, canVote, postVisibility } from '@/lib/domain/permissions';
 import { isRateLimited } from '@/lib/domain/rateLimit';
@@ -9,7 +11,9 @@ import { communitySlug, validateCommunityName } from '@/lib/domain/community';
 import { validateUsername } from '@/lib/domain/username';
 import { applyVoteToScore, nextVote } from '@/lib/domain/votes';
 import { postSchema } from '@/lib/validation/schemas';
-import type { Comment } from '@/types';
+import { draftIsDirty } from '@/store/composerDraft';
+import { tabContentPadding } from '@/theme/tokens';
+import type { Comment, Community } from '@/types';
 
 describe('votes', () => {
   it('toggles a vote off and switches direction', () => {
@@ -97,6 +101,46 @@ describe('notifications', () => {
     );
     expect(allowsNotification('mention', { replies: true, mentions: false })).toBe(false);
     expect(extractMentions('thanks @jonah_okonkwo')).toEqual(['jonah_okonkwo']);
+    expect(notificationContext({ postTitle: 'Why does God allow suffering?', postExcerpt: 'I keep coming back to John 11:35.' })).toEqual({
+      title: 'Why does God allow suffering?',
+      excerpt: 'I keep coming back to John 11:35.',
+    });
+  });
+});
+
+describe('composer readiness', () => {
+  it('requires a community, title, and body', () => {
+    expect(isPostReady({ communityId: '', type: 'discussion', title: 'Hello there', body: 'Enough text', scriptureReferences: [] })).toBe(false);
+    expect(isPostReady({ communityId: 'a1000000-0000-4000-8000-000000000001', type: 'discussion', title: 'No', body: 'Enough text', scriptureReferences: [] })).toBe(false);
+    expect(isPostReady({ communityId: 'a1000000-0000-4000-8000-000000000001', type: 'discussion', title: 'Hello there', body: '', scriptureReferences: [] })).toBe(false);
+    expect(isPostReady({ communityId: 'a1000000-0000-4000-8000-000000000001', type: 'discussion', title: 'Hello there', body: 'Enough text', scriptureReferences: [] })).toBe(true);
+  });
+
+  it('treats a typed draft as dirty and an empty draft as clean', () => {
+    expect(draftIsDirty({ communityId: '', type: 'discussion', title: '', body: '', scriptureReferences: [], imageUri: null })).toBe(false);
+    expect(draftIsDirty({ communityId: '', type: 'discussion', title: 'Saved', body: '', scriptureReferences: [], imageUri: null })).toBe(true);
+  });
+});
+
+describe('explore suggestions', () => {
+  it('prefers communities the viewer has not joined', () => {
+    const communities = [
+      community('joined', true),
+      community('fresh', false),
+    ];
+    expect(suggestedCommunities(communities).map((item) => item.slug)).toEqual(['fresh']);
+  });
+});
+
+describe('layout', () => {
+  it('keeps feed content above the floating tab bar', () => {
+    expect(tabContentPadding(34)).toBeGreaterThan(120);
+    expect(tabContentPadding(0)).toBeGreaterThan(80);
+  });
+
+  it('truncates a preview without inventing words', () => {
+    expect(bodyPreview('Short note', 180)).toBe('Short note');
+    expect(bodyPreview('A'.repeat(200), 180).endsWith('…')).toBe(true);
   });
 });
 
@@ -117,6 +161,20 @@ describe('pagination and permissions', () => {
     expect(postSchema.safeParse({ communityId: 'a1000000-0000-4000-8000-000000000001', type: 'question', title: 'No', body: '', scriptureReferences: [] }).success).toBe(false);
   });
 });
+
+function community(slug: string, joined: boolean): Community {
+  return {
+    id: slug,
+    slug,
+    name: slug,
+    description: 'A community',
+    icon: 'book-outline',
+    rules: '',
+    memberCount: 1,
+    joined,
+    isActive: true,
+  };
+}
 
 function comment(id: string, parent: string | null, depth: number, status: Comment['status'] = 'published'): Comment {
   return {

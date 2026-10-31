@@ -2,7 +2,9 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 
+import { AppHeader } from '@/components/ui/AppHeader';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
+import { IconButton } from '@/components/ui/IconButton';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { ACCOUNT_DELETION_POLICY } from '@/constants/guidelines';
@@ -20,8 +22,8 @@ export default function DeleteAccountScreen() {
   const matches = confirmation.trim().toLowerCase() === profile?.username.toLowerCase();
   return (
     <ScreenContainer>
-      <View style={{ padding: theme.spacing.xl, gap: theme.spacing.lg }}>
-        <Text style={[theme.type.title, { color: theme.colors.text }]}>Delete account</Text>
+      <AppHeader left={<IconButton label="Back" name="chevron-back" onPress={() => router.back()} />} title="Delete account" />
+      <View style={{ paddingHorizontal: theme.spacing.lg, paddingTop: theme.spacing.md, gap: theme.spacing.lg }}>
         <Text style={[theme.type.body, { color: theme.colors.secondary }]}>{ACCOUNT_DELETION_POLICY}</Text>
         <Text style={[theme.type.caption, { color: theme.colors.secondary }]}>Signed in as {session?.email}. Type @{profile?.username} to continue.</Text>
         <TextInput autoCapitalize="none" onChangeText={setConfirmation} placeholder={profile?.username} placeholderTextColor={theme.colors.secondary} style={[theme.type.body, { color: theme.colors.text, minHeight: 48 }]} testID="delete-confirm" value={confirmation} />
