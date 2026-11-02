@@ -1,19 +1,31 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 
+import { CURATED_COMMUNITIES } from '@/constants/communities';
+import { communityColorFor, isCommunityColor } from '@/constants/communityColors';
+import { isCommunityTopic } from '@/constants/communityTopics';
 import { LIMITS } from '@/constants/limits';
+import { reportReasonLabel } from '@/constants/reportReasons';
 import type { GatherApi, ModerationInput } from '@/lib/backend/api';
 import { AppError } from '@/lib/backend/errors';
-import { createSeed } from '@/lib/backend/demo/seed';
+import { absorbSample, createSeed } from '@/lib/backend/demo/seed';
 import type { DemoComment, DemoPost, DemoState, DemoUser } from '@/lib/backend/demo/types';
 import { wouldExceedDepth } from '@/lib/domain/comments';
-import { sortFeed } from '@/lib/domain/feed';
-import { allowsNotification, commentNotificationIntents, extractMentions } from '@/lib/domain/notifications';
+import { bodyPreview, sortFeed } from '@/lib/domain/feed';
+import {
+  allowsNotification,
+  commentNotificationIntents,
+  crossedMilestone,
+  extractMentions,
+  PRAYER_MILESTONES,
+  VOTE_MILESTONES,
+} from '@/lib/domain/notifications';
 import { paginate } from '@/lib/domain/pagination';
 import { canEditOwnContent, canModerate, canVote, canWrite, postVisibility } from '@/lib/domain/permissions';
 import { isRateLimited } from '@/lib/domain/rateLimit';
 import { COMMUNITY_ICONS, communitySlug, validateCommunityName } from '@/lib/domain/community';
 import { validateUsername } from '@/lib/domain/username';
+import { tallyVotes } from '@/lib/domain/votes';
 import { mergeReferences, validateReference } from '@/lib/scripture/parse';
 import { commentSchema, postSchema, reportSchema, signInSchema, signUpSchema } from '@/lib/validation/schemas';
 import type {
@@ -21,12 +33,16 @@ import type {
   AppSession,
   Comment,
   Community,
+  CommunityModerator,
   CreatePostInput,
   FeedQuery,
+  NotificationPreferences,
+  NotificationType,
   PostCard,
   Profile,
   ReportItem,
   ScriptureReference,
+  UpdateCommunityInput,
   UpdateProfileInput,
   VoteValue,
 } from '@/types';
@@ -59,7 +75,7 @@ export class DemoStore implements GatherApi {
   private async load() {
     try {
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
-      if (raw) this.state = JSON.parse(raw) as DemoState;
+      if (raw) this.state = absorbSample(JSON.parse(raw) as DemoState);
     } catch {
       this.state = createSeed();
     }
@@ -101,9 +117,7 @@ export class DemoStore implements GatherApi {
 
   private blocked(a: string | null, b: string | null) {
     if (!a || !b) return false;
-    return this.state.blocks.some(
-      (block) => (block.blockerId === a && block.blockedId === b) || (block.blockerId === b && block.blockedId === a),
-    );
+    return this.state.blocks.some((block) => (block.blockerId === a && block.blockedId === b) || (block.blockerId === b && block.blockedId === a));
   }
 
   private mayModerate(communityId: string, caps: { communityIds: readonly string[]; isAdmin: boolean }) {
@@ -148,14 +162,52 @@ export class DemoStore implements GatherApi {
     };
   }
 
+  /** Who started a community: stored for new rooms, or the lone moderator of an older user-made room. */
+  private starterOf(communityId: string): string | null {
+    const community = this.state.communities.find((item) => item.id === communityId);
+    if (!community) return null;
+    if (community.createdByUserId) return community.createdByUserId;
+    const curated = CURATED_COMMUNITIES.some((item) => item.id === community.id);
+    const mods = this.state.moderators.filter((moderator) => moderator.communityId === community.id);
+    return !curated && mods.length === 1 ? (mods[0]?.userId ?? null) : null;
+  }
+
+  private moderatorCard(communityId: string, userId: string): CommunityModerator | null {
+    const person = this.state.users.find((user) => user.id === userId && user.status !== 'deleted');
+    if (!person) return null;
+    return {
+      userId: person.id,
+      username: person.username,
+      displayName: person.displayName,
+      avatarPath: person.avatarPath,
+      isStarter: this.starterOf(communityId) === person.id,
+    };
+  }
+
+  /** The starter and admins manage who moderates; every moderator can edit the details. */
+  private mayManageModerators(communityId: string, userId: string) {
+    return this.starterOf(communityId) === userId || this.state.admins.includes(userId);
+  }
+
   private community(id: string, viewerId: string | null): Community {
     const community = this.state.communities.find((item) => item.id === id);
     if (!community) throw new AppError('NOT_FOUND', 'not_found');
+    const createdByUserId = this.starterOf(community.id);
+    const creator = createdByUserId ? this.state.users.find((user) => user.id === createdByUserId && user.status !== 'deleted') : null;
     return {
-      ...community,
+      id: community.id,
+      slug: community.slug,
+      name: community.name,
+      description: community.description,
+      icon: community.icon,
+      rules: community.rules,
       memberCount: this.state.memberships.filter((membership) => membership.communityId === id).length,
       joined: !!viewerId && this.state.memberships.some((membership) => membership.communityId === id && membership.userId === viewerId),
       isActive: true,
+      topic: community.topic ?? null,
+      color: communityColorFor(community.id, community.color),
+      createdByUsername: creator?.username ?? null,
+      createdByDisplayName: creator ? creator.displayName || creator.username : createdByUserId ? 'a former member' : null,
     };
   }
 
@@ -181,10 +233,12 @@ export class DemoStore implements GatherApi {
       imageUri: post.status === 'published' ? (post.imageUri ?? null) : null,
       status: post.status,
       isLocked: post.isLocked,
-      score: votes.reduce((sum, vote) => sum + vote.value, 0),
+      ...tallyVotes(votes.map((vote) => vote.value)),
       commentCount: this.state.comments.filter((comment) => comment.postId === post.id && comment.status === 'published').length,
       userVote: mine?.value ?? 0,
       saved: !!viewerId && this.state.saves.some((save) => save.userId === viewerId && save.postId === post.id),
+      prayedCount: (this.state.prayers ?? []).filter((prayer) => prayer.postId === post.id).length,
+      userPrayed: !!viewerId && (this.state.prayers ?? []).some((prayer) => prayer.userId === viewerId && prayer.postId === post.id),
       createdAt: post.createdAt,
       updatedAt: post.updatedAt,
     };
@@ -222,7 +276,7 @@ export class DemoStore implements GatherApi {
       status: concealed ? 'removed' : comment.status,
       concealed,
       depth: comment.depth,
-      score: votes.reduce((sum, vote) => sum + vote.value, 0),
+      ...tallyVotes(votes.map((vote) => vote.value)),
       userVote: votes.find((vote) => vote.userId === viewerId)?.value ?? 0,
       createdAt: comment.createdAt,
     };
@@ -247,20 +301,46 @@ export class DemoStore implements GatherApi {
       mentionedUserIds: mentioned,
     });
     for (const intent of intents) {
-      if (this.blocked(actorId, intent.recipientId)) continue;
-      const preferences = this.state.preferences.find((item) => item.userId === intent.recipientId) ?? { replies: true, mentions: true };
-      if (!allowsNotification(intent.type, preferences)) continue;
-      this.state.notifications.unshift({
-        id: Crypto.randomUUID(),
-        recipientId: intent.recipientId,
-        actorId,
-        type: intent.type,
-        postId: post.id,
-        commentId: comment.id,
-        isRead: false,
-        createdAt: comment.createdAt,
-      });
+      this.notify({ recipientId: intent.recipientId, actorId, type: intent.type, postId: post.id, commentId: comment.id, createdAt: comment.createdAt });
     }
+  }
+
+  private notify(entry: {
+    recipientId: string | null;
+    actorId: string | null;
+    type: NotificationType;
+    postId: string;
+    commentId?: string | null;
+    count?: number | null;
+    detail?: string | null;
+    createdAt?: string;
+  }) {
+    if (!entry.recipientId || entry.recipientId === entry.actorId) return;
+    if (entry.actorId && this.blocked(entry.actorId, entry.recipientId)) return;
+    const preferences = this.state.preferences.find((item) => item.userId === entry.recipientId) ?? { replies: true, mentions: true };
+    if (!allowsNotification(entry.type, preferences)) return;
+    this.state.notifications.unshift({
+      id: Crypto.randomUUID(),
+      recipientId: entry.recipientId,
+      actorId: entry.actorId,
+      type: entry.type,
+      postId: entry.postId,
+      commentId: entry.commentId ?? null,
+      isRead: false,
+      createdAt: entry.createdAt ?? new Date().toISOString(),
+      count: entry.count ?? null,
+      detail: entry.detail ?? null,
+    });
+  }
+
+  /** Milestones fire once per post and level, even if someone takes a thumbs up or prayer back and gives it again. */
+  private notifyMilestone(type: 'prayer_milestone' | 'vote_milestone', post: DemoPost, before: number, after: number) {
+    const steps = type === 'prayer_milestone' ? PRAYER_MILESTONES : VOTE_MILESTONES;
+    const reached = crossedMilestone(before, after, steps);
+    if (reached === null) return;
+    const already = this.state.notifications.some((item) => item.type === type && item.postId === post.id && (item.count ?? 0) >= reached);
+    if (already) return;
+    this.notify({ recipientId: post.authorId, actorId: null, type, postId: post.id, count: reached });
   }
 
   getSession() {
@@ -353,6 +433,7 @@ export class DemoStore implements GatherApi {
       this.state.postVotes = this.state.postVotes.filter((vote) => vote.userId !== user.id);
       this.state.commentVotes = this.state.commentVotes.filter((vote) => vote.userId !== user.id);
       this.state.saves = this.state.saves.filter((save) => save.userId !== user.id);
+      this.state.prayers = (this.state.prayers ?? []).filter((prayer) => prayer.userId !== user.id);
       this.state.memberships = this.state.memberships.filter((membership) => membership.userId !== user.id);
       this.state.blocks = this.state.blocks.filter((block) => block.blockerId !== user.id && block.blockedId !== user.id);
       this.state.notifications = this.state.notifications.filter((item) => item.recipientId !== user.id && item.actorId !== user.id);
@@ -431,7 +512,7 @@ export class DemoStore implements GatherApi {
     });
   }
 
-  createCommunity(input: { name: string; description: string; rules: string; icon: string }) {
+  createCommunity(input: { name: string; description: string; rules: string; icon: string; topic: string; color: string }) {
     return this.enqueue(async () => {
       const user = this.requireUser();
       const message = validateCommunityName(input.name);
@@ -444,10 +525,10 @@ export class DemoStore implements GatherApi {
       }
       if (rules.length > LIMITS.communityRulesMax) throw new AppError('The rules are too long.', 'validation');
       if (!COMMUNITY_ICONS.includes(input.icon as (typeof COMMUNITY_ICONS)[number])) throw new AppError('Choose an icon.', 'validation');
+      if (!isCommunityTopic(input.topic) || input.topic === 'more') throw new AppError('Choose a topic.', 'validation');
+      if (!isCommunityColor(input.color)) throw new AppError('Choose a color.', 'validation');
       const slug = communitySlug(name);
-      const taken = this.state.communities.some(
-        (community) => community.slug === slug || community.name.toLowerCase() === name.toLowerCase(),
-      );
+      const taken = this.state.communities.some((community) => community.slug === slug || community.name.toLowerCase() === name.toLowerCase());
       if (taken) throw new AppError('A community with that name already exists.', 'conflict');
       this.guardRate(user.id, 'community', LIMITS.communitiesPerHour);
       const id = Crypto.randomUUID();
@@ -459,11 +540,85 @@ export class DemoStore implements GatherApi {
         description,
         icon: input.icon,
         rules: rules || 'Be respectful. Disagree with ideas, not people. Do not share someone else’s private information.',
+        createdByUserId: user.id,
+        topic: input.topic,
+        color: input.color,
       });
       this.state.memberships.push({ userId: user.id, communityId: id, createdAt: now });
       this.state.moderators.push({ communityId: id, userId: user.id });
       await this.persist();
       return this.community(id, user.id);
+    });
+  }
+
+  updateCommunity(id: string, input: UpdateCommunityInput) {
+    return this.enqueue(async () => {
+      const user = this.requireUser();
+      const community = this.state.communities.find((item) => item.id === id);
+      if (!community) throw new AppError('NOT_FOUND', 'not_found');
+      if (!this.mayModerate(id, this.capabilitiesFor(user.id))) throw new AppError('FORBIDDEN', 'forbidden');
+      const description = input.description.trim();
+      const rules = input.rules.trim();
+      if (description.length < LIMITS.communityDescriptionMin || description.length > LIMITS.communityDescriptionMax) {
+        throw new AppError(`Describe the community in ${LIMITS.communityDescriptionMin}–${LIMITS.communityDescriptionMax} characters.`, 'validation');
+      }
+      if (rules.length > LIMITS.communityRulesMax) throw new AppError('The rules are too long.', 'validation');
+      if (!COMMUNITY_ICONS.includes(input.icon as (typeof COMMUNITY_ICONS)[number])) throw new AppError('Choose an icon.', 'validation');
+      if (!isCommunityTopic(input.topic) || input.topic === 'more') throw new AppError('Choose a topic.', 'validation');
+      if (!isCommunityColor(input.color)) throw new AppError('Choose a color.', 'validation');
+      community.description = description;
+      community.rules = rules || 'Be respectful. Disagree with ideas, not people. Do not share someone else’s private information.';
+      community.icon = input.icon;
+      community.color = input.color;
+      community.topic = input.topic;
+      await this.persist();
+      return this.community(id, user.id);
+    });
+  }
+
+  listCommunityModerators(communityId: string) {
+    return this.enqueue(async () => {
+      if (!this.state.communities.some((item) => item.id === communityId)) throw new AppError('NOT_FOUND', 'not_found');
+      return this.state.moderators
+        .filter((moderator) => moderator.communityId === communityId)
+        .map((moderator) => this.moderatorCard(communityId, moderator.userId))
+        .filter((card): card is CommunityModerator => !!card)
+        .sort((a, b) => Number(b.isStarter) - Number(a.isStarter) || a.username.localeCompare(b.username));
+    });
+  }
+
+  addCommunityModerator(communityId: string, username: string) {
+    return this.enqueue(async () => {
+      const user = this.requireUser();
+      if (!this.state.communities.some((item) => item.id === communityId)) throw new AppError('NOT_FOUND', 'not_found');
+      if (!this.mayManageModerators(communityId, user.id)) throw new AppError('Only the person who started this community can add moderators.', 'forbidden');
+      const handle = username.trim().replace(/^@/, '').toLowerCase();
+      const person = this.state.users.find((item) => item.username.toLowerCase() === handle && item.status === 'active');
+      if (!person) throw new AppError('No one has that username.', 'not_found');
+      if (this.state.moderators.some((item) => item.communityId === communityId && item.userId === person.id)) {
+        throw new AppError(`@${person.username} is already a moderator.`, 'conflict');
+      }
+      if (!this.state.memberships.some((item) => item.communityId === communityId && item.userId === person.id)) {
+        throw new AppError(`@${person.username} needs to join the community first.`, 'validation');
+      }
+      this.state.moderators.push({ communityId, userId: person.id });
+      await this.persist();
+      return this.moderatorCard(communityId, person.id)!;
+    });
+  }
+
+  removeCommunityModerator(communityId: string, userId: string) {
+    return this.enqueue(async () => {
+      const user = this.requireUser();
+      if (this.starterOf(communityId) === userId) throw new AppError('The person who started the community stays a moderator.', 'forbidden');
+      const steppingDown = userId === user.id;
+      if (!steppingDown && !this.mayManageModerators(communityId, user.id)) {
+        throw new AppError('Only the person who started this community can remove moderators.', 'forbidden');
+      }
+      const before = this.state.moderators.length;
+      this.state.moderators = this.state.moderators.filter((item) => !(item.communityId === communityId && item.userId === userId));
+      if (this.state.moderators.length === before) throw new AppError('NOT_FOUND', 'not_found');
+      await this.persist();
     });
   }
 
@@ -638,21 +793,28 @@ export class DemoStore implements GatherApi {
       if (!canVote({ profileStatus: user.status, contentStatus: post.status, isLocked: post.isLocked })) {
         throw new AppError(post.isLocked ? 'LOCKED' : 'FORBIDDEN', post.isLocked ? 'locked' : 'forbidden');
       }
+      const thumbsUp = () => this.state.postVotes.filter((vote) => vote.postId === id && vote.value === 1).length;
+      const before = thumbsUp();
       this.state.postVotes = this.state.postVotes.filter((vote) => !(vote.userId === user.id && vote.postId === id));
       if (value !== 0) this.state.postVotes.push({ userId: user.id, postId: id, value });
-      const score = this.state.postVotes.filter((vote) => vote.postId === id).reduce((sum, vote) => sum + vote.value, 0);
-      return { score, userVote: value };
+      if (post.authorId !== user.id) this.notifyMilestone('vote_milestone', post, before, thumbsUp());
+      return { ...tallyVotes(this.state.postVotes.filter((vote) => vote.postId === id).map((vote) => vote.value)), userVote: value };
     }
     const comment = this.state.comments.find((item) => item.id === id);
     const post = comment ? this.state.posts.find((item) => item.id === comment.postId) : undefined;
     if (!comment || !post) throw new AppError('NOT_FOUND', 'not_found');
-    if (!canVote({ profileStatus: user.status, contentStatus: comment.status === 'published' && post.status === 'published' ? 'published' : 'removed', isLocked: post.isLocked })) {
+    if (
+      !canVote({
+        profileStatus: user.status,
+        contentStatus: comment.status === 'published' && post.status === 'published' ? 'published' : 'removed',
+        isLocked: post.isLocked,
+      })
+    ) {
       throw new AppError(post.isLocked ? 'LOCKED' : 'FORBIDDEN', post.isLocked ? 'locked' : 'forbidden');
     }
     this.state.commentVotes = this.state.commentVotes.filter((vote) => !(vote.userId === user.id && vote.commentId === id));
     if (value !== 0) this.state.commentVotes.push({ userId: user.id, commentId: id, value });
-    const score = this.state.commentVotes.filter((vote) => vote.commentId === id).reduce((sum, vote) => sum + vote.value, 0);
-    return { score, userVote: value };
+    return { ...tallyVotes(this.state.commentVotes.filter((vote) => vote.commentId === id).map((vote) => vote.value)), userVote: value };
   }
 
   votePost(postId: string, value: VoteValue) {
@@ -681,6 +843,20 @@ export class DemoStore implements GatherApi {
     });
   }
 
+  setPrayed(postId: string, prayed: boolean) {
+    return this.enqueue(async () => {
+      const user = this.requireUser();
+      const post = this.state.posts.find((item) => item.id === postId && item.status === 'published' && item.type === 'prayer_request');
+      if (!post) throw new AppError('NOT_FOUND', 'not_found');
+      const before = (this.state.prayers ?? []).filter((prayer) => prayer.postId === postId).length;
+      this.state.prayers = (this.state.prayers ?? []).filter((prayer) => !(prayer.userId === user.id && prayer.postId === postId));
+      if (prayed) this.state.prayers.push({ userId: user.id, postId });
+      if (post.authorId !== user.id)
+        this.notifyMilestone('prayer_milestone', post, before, this.state.prayers.filter((prayer) => prayer.postId === postId).length);
+      await this.persist();
+    });
+  }
+
   search(query: string) {
     return this.enqueue(async () => {
       const needle = query.trim().toLowerCase();
@@ -705,16 +881,28 @@ export class DemoStore implements GatherApi {
         .filter((item) => item.recipientId === user && !this.blocked(user, item.actorId))
         .map((item): AppNotification => {
           const actor = this.state.users.find((person) => person.id === item.actorId);
+          const visibleActor = actor && actor.status !== 'deleted' ? actor : null;
           const post = this.state.posts.find((entry) => entry.id === item.postId);
+          const community = post ? this.state.communities.find((entry) => entry.id === post.communityId) : undefined;
+          const comment = item.commentId ? this.state.comments.find((entry) => entry.id === item.commentId) : undefined;
+          const quotesComment = item.type === 'post_reply' || item.type === 'comment_reply' || item.type === 'mention';
           return {
             id: item.id,
             type: item.type,
-            actorId: actor && actor.status !== 'deleted' ? actor.id : null,
-            actorUsername: actor && actor.status !== 'deleted' ? actor.username : null,
-            actorDisplayName: actor && actor.status !== 'deleted' ? actor.displayName : null,
+            actorId: visibleActor?.id ?? null,
+            actorUsername: visibleActor?.username ?? null,
+            actorDisplayName: visibleActor?.displayName ?? null,
+            actorAvatarPath: visibleActor?.avatarPath ?? null,
             postId: item.postId,
             postType: post?.type ?? null,
+            postTitle: post?.title ?? null,
+            postAvailable: !!post && post.status === 'published',
+            communityName: community?.name ?? null,
+            communityIcon: community?.icon ?? null,
+            communityColor: community ? communityColorFor(community.id, community.color) : null,
             commentId: item.commentId,
+            snippet: quotesComment ? (comment?.status === 'published' ? bodyPreview(comment.body, 140) : null) : (item.detail ?? null),
+            count: item.count ?? null,
             isRead: item.isRead,
             createdAt: item.createdAt,
           };
@@ -743,20 +931,36 @@ export class DemoStore implements GatherApi {
   getNotificationPreferences() {
     return this.enqueue(async () => {
       const user = this.requireUser();
-      return this.state.preferences.find((item) => item.userId === user.id) ?? { replies: true, mentions: true };
+      const saved = this.state.preferences.find((item) => item.userId === user.id);
+      return { replies: saved?.replies ?? true, mentions: saved?.mentions ?? true, encouragement: saved?.encouragement ?? true };
     });
   }
 
-  updateNotificationPreferences(preferences: { replies: boolean; mentions: boolean }) {
+  updateNotificationPreferences(preferences: NotificationPreferences) {
     return this.enqueue(async () => {
       const user = this.requireUser();
       const current = this.state.preferences.find((item) => item.userId === user.id);
       if (current) {
         current.replies = preferences.replies;
         current.mentions = preferences.mentions;
-      } else this.state.preferences.push({ userId: user.id, ...preferences });
+        current.encouragement = preferences.encouragement ?? true;
+      } else
+        this.state.preferences.push({
+          userId: user.id,
+          replies: preferences.replies,
+          mentions: preferences.mentions,
+          encouragement: preferences.encouragement ?? true,
+        });
       await this.persist();
     });
+  }
+
+  registerPushToken() {
+    return this.enqueue(async () => undefined);
+  }
+
+  clearPushToken() {
+    return this.enqueue(async () => undefined);
   }
 
   report(input: { targetType: 'post' | 'comment'; targetId: string; reason: ReportItem['reason']; details?: string }) {
@@ -764,10 +968,12 @@ export class DemoStore implements GatherApi {
       const user = this.requireUser();
       const parsed = reportSchema.safeParse({ reason: input.reason, details: input.details ?? '' });
       if (!parsed.success) throw new AppError(parsed.error.issues[0]?.message ?? 'INVALID_INPUT', 'validation');
-      const authorId = input.targetType === 'post'
-        ? this.state.posts.find((post) => post.id === input.targetId)?.authorId
-        : this.state.comments.find((comment) => comment.id === input.targetId)?.authorId;
-      if (!authorId && input.targetType === 'post' && !this.state.posts.some((post) => post.id === input.targetId)) throw new AppError('NOT_FOUND', 'not_found');
+      const authorId =
+        input.targetType === 'post'
+          ? this.state.posts.find((post) => post.id === input.targetId)?.authorId
+          : this.state.comments.find((comment) => comment.id === input.targetId)?.authorId;
+      if (!authorId && input.targetType === 'post' && !this.state.posts.some((post) => post.id === input.targetId))
+        throw new AppError('NOT_FOUND', 'not_found');
       if (input.targetType === 'comment' && !this.state.comments.some((comment) => comment.id === input.targetId)) throw new AppError('NOT_FOUND', 'not_found');
       if (authorId === user.id) throw new AppError('SELF_ACTION', 'validation');
       this.guardRate(user.id, 'report', LIMITS.reportsPerHour);
@@ -783,6 +989,25 @@ export class DemoStore implements GatherApi {
         resolvedAt: null,
         resolvedBy: null,
       });
+      const postId = input.targetType === 'post' ? input.targetId : this.state.comments.find((comment) => comment.id === input.targetId)?.postId;
+      const communityId = postId ? this.state.posts.find((post) => post.id === postId)?.communityId : undefined;
+      if (postId && communityId) {
+        const reviewers = new Set([
+          ...this.state.moderators.filter((item) => item.communityId === communityId).map((item) => item.userId),
+          ...this.state.admins,
+        ]);
+        for (const reviewer of reviewers) {
+          if (reviewer === user.id) continue;
+          this.notify({
+            recipientId: reviewer,
+            actorId: null,
+            type: 'new_report',
+            postId,
+            commentId: input.targetType === 'comment' ? input.targetId : null,
+            detail: reportReasonLabel(input.reason),
+          });
+        }
+      }
       await this.persist();
     });
   }
@@ -803,7 +1028,12 @@ export class DemoStore implements GatherApi {
       const user = this.requireUser();
       return this.state.blocks
         .filter((block) => block.blockerId === user.id)
-        .map((block) => this.profile(this.state.users.find((item) => item.id === block.blockedId), user.id))
+        .map((block) =>
+          this.profile(
+            this.state.users.find((item) => item.id === block.blockedId),
+            user.id,
+          ),
+        )
         .filter((profile) => profile.status !== 'deleted');
     });
   }
@@ -812,7 +1042,9 @@ export class DemoStore implements GatherApi {
     return this.enqueue(async () => {
       const user = this.requireUser();
       const ids = this.state.saves.filter((save) => save.userId === user.id).map((save) => save.postId);
-      return this.visiblePosts(user.id).filter((post) => ids.includes(post.id)).map((post) => this.postCard(post, user.id));
+      return this.visiblePosts(user.id)
+        .filter((post) => ids.includes(post.id))
+        .map((post) => this.postCard(post, user.id));
     });
   }
 
@@ -840,7 +1072,16 @@ export class DemoStore implements GatherApi {
       if (!user) throw new AppError('NOT_FOUND', 'not_found');
       return this.state.comments
         .filter((comment) => comment.authorId === user.id && comment.status === 'published' && !this.blocked(this.state.sessionUserId, user.id))
-        .map((comment) => this.commentCard(comment, this.state.sessionUserId));
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .map((comment) => {
+          const post = this.state.posts.find((item) => item.id === comment.postId);
+          const community = post ? this.state.communities.find((item) => item.id === post.communityId) : undefined;
+          return {
+            ...this.commentCard(comment, this.state.sessionUserId),
+            postTitle: post?.status === 'published' ? post.title : null,
+            communityName: community?.name ?? null,
+          };
+        });
     });
   }
 
@@ -857,14 +1098,21 @@ export class DemoStore implements GatherApi {
           const communityId = this.communityIdForTarget(report.targetType, report.targetId);
           return !!communityId && this.mayModerate(communityId, caps);
         })
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .map((report): ReportItem => {
           const communityId = this.communityIdForTarget(report.targetType, report.targetId)!;
           const community = this.state.communities.find((item) => item.id === communityId);
           const reporter = this.state.users.find((item) => item.id === report.reporterId);
-          const excerpt = report.targetType === 'post'
-            ? this.state.posts.find((post) => post.id === report.targetId)?.title ?? 'Post'
-            : this.state.comments.find((comment) => comment.id === report.targetId)?.body.slice(0, 140) ?? 'Comment';
+          const excerpt =
+            report.targetType === 'post'
+              ? (this.state.posts.find((post) => post.id === report.targetId)?.title ?? 'Post')
+              : (this.state.comments.find((comment) => comment.id === report.targetId)?.body.slice(0, 140) ?? 'Comment');
+          const postId =
+            report.targetType === 'post' ? report.targetId : (this.state.comments.find((comment) => comment.id === report.targetId)?.postId ?? null);
           return {
+            postId,
+            communityIcon: community?.icon ?? null,
+            communityColor: community ? communityColorFor(community.id, community.color) : null,
             id: report.id,
             reporterId: report.reporterId,
             reporterUsername: reporter?.username ?? null,
@@ -885,7 +1133,7 @@ export class DemoStore implements GatherApi {
   private communityIdForTarget(targetType: 'post' | 'comment', targetId: string) {
     if (targetType === 'post') return this.state.posts.find((post) => post.id === targetId)?.communityId ?? null;
     const comment = this.state.comments.find((item) => item.id === targetId);
-    return comment ? this.state.posts.find((post) => post.id === comment.postId)?.communityId ?? null : null;
+    return comment ? (this.state.posts.find((post) => post.id === comment.postId)?.communityId ?? null) : null;
   }
 
   listModerationHistory() {
@@ -894,15 +1142,21 @@ export class DemoStore implements GatherApi {
       const caps = this.capabilitiesFor(user.id);
       return this.state.moderationActions
         .filter((action) => this.mayModerate(action.communityId, caps))
-        .map((action) => ({
-          id: action.id,
-          action: action.action,
-          reason: action.reason,
-          targetType: action.targetType,
-          targetId: action.targetId,
-          communityName: this.state.communities.find((community) => community.id === action.communityId)?.name ?? '',
-          createdAt: action.createdAt,
-        }));
+        .map((action) => {
+          const community = this.state.communities.find((item) => item.id === action.communityId);
+          return {
+            id: action.id,
+            action: action.action,
+            reason: action.reason,
+            targetType: action.targetType,
+            targetId: action.targetId,
+            communityName: community?.name ?? '',
+            communityIcon: community?.icon ?? null,
+            communityColor: community ? communityColorFor(community.id, community.color) : null,
+            moderatorUsername: this.state.users.find((item) => item.id === action.moderatorId && item.status !== 'deleted')?.username ?? null,
+            createdAt: action.createdAt,
+          };
+        });
     });
   }
 
@@ -918,12 +1172,21 @@ export class DemoStore implements GatherApi {
           if (!post) throw new AppError('NOT_FOUND', 'not_found');
           post.status = 'removed';
           post.body = '';
+          this.notify({ recipientId: post.authorId, actorId: null, type: 'content_removed', postId: post.id, detail: input.reason.trim() });
         } else {
           const comment = this.state.comments.find((item) => item.id === input.targetId);
           const post = comment ? this.state.posts.find((item) => item.id === comment.postId) : undefined;
           if (!comment || post?.communityId !== input.communityId) throw new AppError('NOT_FOUND', 'not_found');
           comment.status = 'removed';
           comment.body = '';
+          this.notify({
+            recipientId: comment.authorId,
+            actorId: null,
+            type: 'content_removed',
+            postId: comment.postId,
+            commentId: comment.id,
+            detail: input.reason.trim(),
+          });
         }
       }
       if (input.action === 'lock' || input.action === 'unlock') {

@@ -7,6 +7,8 @@ export interface ThemeColors {
   onPrimary: string;
   text: string;
   secondary: string;
+  /** Quieter than text, but still readable at reading sizes. Use for previews and counts. */
+  muted: string;
   border: string;
   highlight: string;
   accent: string;
@@ -22,6 +24,7 @@ export const palette: Record<'light' | 'dark', ThemeColors> = {
     onPrimary: '#FFFFFF',
     text: '#18221F',
     secondary: '#6F7974',
+    muted: '#4A5550',
     border: '#E7EAE5',
     highlight: '#EDF3EE',
     accent: '#244F46',
@@ -35,6 +38,7 @@ export const palette: Record<'light' | 'dark', ThemeColors> = {
     onPrimary: '#10211C',
     text: '#F5F7F3',
     secondary: '#A2AEA6',
+    muted: '#C3CCC6',
     border: '#303C35',
     highlight: '#24312B',
     accent: '#8EBCAA',
@@ -64,6 +68,7 @@ const fontFamily = Platform.select({ ios: 'System', android: 'sans-serif', defau
 
 export const type = {
   largeTitle: { fontFamily, fontSize: 34, lineHeight: 40, fontWeight: '700' },
+  display: { fontFamily, fontSize: 36, lineHeight: 42, fontWeight: '700' },
   title: { fontFamily, fontSize: 22, lineHeight: 28, fontWeight: '700' },
   section: { fontFamily, fontSize: 17, lineHeight: 22, fontWeight: '600' },
   postTitle: { fontFamily, fontSize: 17, lineHeight: 22, fontWeight: '600' },

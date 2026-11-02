@@ -3,6 +3,7 @@ import { create } from 'zustand';
 export type PendingAction =
   | { type: 'vote'; postId: string; value: -1 | 1 }
   | { type: 'save'; postId: string; saved: boolean }
+  | { type: 'pray'; postId: string; prayed: boolean }
   | { type: 'join'; communityId: string; join: boolean };
 
 interface PendingState {

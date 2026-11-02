@@ -6,22 +6,25 @@ import { FlatList, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, V
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CommentCard } from '@/components/comments/CommentCard';
+import { PrayedButton } from '@/components/feed/PrayedButton';
 import { RichText } from '@/components/scripture/RichText';
 import { ScriptureReferenceList } from '@/components/scripture/ScriptureReference';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconButton } from '@/components/ui/IconButton';
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
+import { SaveButton } from '@/components/ui/SaveButton';
 import { SegmentedFilter } from '@/components/ui/SegmentedFilter';
 import { VoteControl } from '@/components/ui/VoteControl';
-import { communityLabel } from '@/constants/communities';
-import { postTypeLabel } from '@/constants/postTypes';
+import { readableCommunityName } from '@/constants/communities';
+import { postByline } from '@/constants/postTypes';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useContentActions } from '@/features/posts/actions';
 import { getApi } from '@/lib/backend';
 import { AppError } from '@/lib/backend/errors';
 import { buildCommentForest, flattenForDisplay, sortCommentForest, subtree } from '@/lib/domain/comments';
 import { mergeReferences } from '@/lib/scripture/parse';
-import { formatRelativeTime } from '@/lib/time';
+import { sharePost } from '@/lib/share';
+import { formatFriendlyTime } from '@/lib/time';
 import { usePending } from '@/store/pending';
 import { useTheme } from '@/theme/ThemeProvider';
 import type { CommentSort, ScriptureReference } from '@/types';
@@ -53,13 +56,19 @@ export function Discussion({ postId, focusCommentId }: { postId: string; focusCo
       setReplyToId(focusCommentId ?? null);
       await client.invalidateQueries({ queryKey: ['comments', postId] });
       await client.invalidateQueries({ queryKey: ['post', postId] });
+      await client.invalidateQueries({ queryKey: ['feed'] });
+      await client.invalidateQueries({ queryKey: ['profile-posts'] });
+      await client.invalidateQueries({ queryKey: ['profile-comments'] });
       await client.invalidateQueries({ queryKey: ['notifications'] });
     },
     onError: (caught) => setError(caught instanceof AppError ? caught.message : 'Could not post the comment.'),
   });
 
   function openReference(reference: ScriptureReference) {
-    router.push({ pathname: '/scripture', params: { book: reference.book, chapter: String(reference.chapter), start: String(reference.verseStart), end: String(reference.verseEnd) } });
+    router.push({
+      pathname: '/scripture',
+      params: { book: reference.book, chapter: String(reference.chapter), start: String(reference.verseStart), end: String(reference.verseEnd) },
+    });
   }
 
   if (post.isLoading || comments.isLoading) return <LoadingSkeleton />;
@@ -74,24 +83,59 @@ export function Discussion({ postId, focusCommentId }: { postId: string; focusCo
       <View style={{ paddingTop: insets.top, flexDirection: 'row', alignItems: 'center' }}>
         <IconButton label="Back" name="chevron-back" onPress={() => router.back()} />
         <Text numberOfLines={1} style={[theme.type.section, { flex: 1, color: theme.colors.text }]}>
-          {communityLabel(item.communityName)}
+          {readableCommunityName(item.communityName)}
         </Text>
+        <IconButton color={theme.colors.secondary} label="Share" name="share-outline" onPress={() => void sharePost(item)} />
+        <IconButton color={theme.colors.secondary} label="More actions" name="ellipsis-horizontal" onPress={() => actions.openPostMenu(item)} />
       </View>
       <FlatList
         ListHeaderComponent={
           <View style={{ paddingVertical: theme.spacing.lg, gap: theme.spacing.md }}>
-            <Text style={[theme.type.caption, { color: theme.colors.secondary }]}>
-              {postTypeLabel(item.type)} · {item.authorUsername ? `@${item.authorUsername}` : 'Deleted user'} · {formatRelativeTime(item.createdAt)}
+            <Text style={[theme.type.body, { color: theme.colors.text }]}>
+              {postByline(item.type, item.authorDisplayName || item.authorUsername || 'Deleted user')} · {formatFriendlyTime(item.createdAt)}
             </Text>
-            <Text style={[theme.type.title, { color: theme.colors.text }]}>{item.title}</Text>
-            {item.status === 'published' ? <RichText onReference={openReference} text={item.body} /> : <Text style={[theme.type.body, { color: theme.colors.secondary }]}>This post was removed.</Text>}
+            <Text style={[theme.type.postTitle, { color: theme.colors.text }]}>{item.title}</Text>
+            {item.status === 'published' ? (
+              <RichText onReference={openReference} text={item.body} />
+            ) : (
+              <Text style={[theme.type.body, { color: theme.colors.secondary }]}>This post was removed.</Text>
+            )}
             {item.imageUri ? (
-              <Image accessibilityLabel="Post photo" contentFit="cover" source={{ uri: item.imageUri }} style={{ width: '100%', height: 240, borderRadius: theme.radius.md, backgroundColor: theme.colors.highlight }} />
+              <Image
+                accessibilityLabel="Post photo"
+                contentFit="cover"
+                source={{ uri: item.imageUri }}
+                style={{ width: '100%', height: 240, borderRadius: theme.radius.md, backgroundColor: theme.colors.highlight }}
+              />
             ) : null}
             <ScriptureReferenceList onPress={openReference} references={item.scriptureReferences} />
-            <VoteControl disabled={locked} onVote={(value) => actions.votePost(item, value)} score={item.score} value={item.userVote} />
+            {item.type === 'prayer_request' && item.status === 'published' ? (
+              <PrayedButton count={item.prayedCount ?? 0} onPress={() => actions.prayPost(item)} prayed={!!item.userPrayed} />
+            ) : null}
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <VoteControl
+                disabled={locked}
+                downvotes={item.downvotes ?? 0}
+                labeled
+                onVote={(value) => actions.votePost(item, value)}
+                upvotes={item.upvotes ?? 0}
+                value={item.userVote}
+              />
+              {session && item.authorId === session.userId ? null : (
+                <View style={{ marginLeft: 'auto' }}>
+                  <SaveButton onPress={() => actions.savePost(item)} saved={item.saved} />
+                </View>
+              )}
+            </View>
             {item.isLocked ? <Text style={[theme.type.caption, { color: theme.colors.secondary }]}>This discussion is locked.</Text> : null}
-            <SegmentedFilter onChange={setSort} options={[{ value: 'helpful', label: 'Helpful' }, { value: 'newest', label: 'Newest' }]} value={sort} />
+            <SegmentedFilter
+              onChange={setSort}
+              options={[
+                { value: 'helpful', label: 'Top' },
+                { value: 'newest', label: 'Newest' },
+              ]}
+              value={sort}
+            />
             {rows.length === 0 ? <Text style={[theme.type.body, { color: theme.colors.secondary }]}>Be the first to join the discussion.</Text> : null}
           </View>
         }
@@ -104,9 +148,9 @@ export function Discussion({ postId, focusCommentId }: { postId: string; focusCo
             depth={row.depth}
             hiddenReplyCount={row.hiddenReplyCount}
             onAuthor={() => row.comment.authorUsername && router.push(`/user/${row.comment.authorUsername}`)}
-            onMenu={() => actions.openCommentMenu(row.comment)}
+            onMenu={() => actions.openCommentMenu(row.comment, item.communityId)}
             onReference={openReference}
-            onReply={() => setReplyToId(row.comment.id)}
+            onReply={session ? () => setReplyToId(row.comment.id) : undefined}
             replyingTo={row.comment.parentCommentId ? parents.get(row.comment.parentCommentId)?.authorUsername : null}
             onViewReplies={() => router.push(`/post/${postId}/replies/${row.comment.id}`)}
             onVote={(value) => {
@@ -121,53 +165,66 @@ export function Discussion({ postId, focusCommentId }: { postId: string; focusCo
           />
         )}
       />
-      <View style={{ borderTopWidth: 1, borderTopColor: theme.colors.border, paddingHorizontal: theme.spacing.md, paddingTop: theme.spacing.sm, paddingBottom: insets.bottom + 8, gap: 8 }}>
-        {replyTarget ? (
+      <View
+        style={{
+          borderTopWidth: 1,
+          borderTopColor: theme.colors.border,
+          paddingHorizontal: theme.spacing.md,
+          paddingTop: theme.spacing.sm,
+          paddingBottom: insets.bottom + 8,
+          gap: 8,
+        }}
+      >
+        {session && replyTarget ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text style={[theme.type.caption, { color: theme.colors.secondary }]}>Replying to @{replyTarget.authorUsername ?? 'someone'}</Text>
             {focusCommentId ? null : (
-              <Text onPress={() => setReplyToId(null)} style={[theme.type.caption, { color: theme.colors.primary, fontWeight: '600' }]}>Cancel</Text>
+              <Text onPress={() => setReplyToId(null)} style={[theme.type.caption, { color: theme.colors.primary, fontWeight: '600' }]}>
+                Cancel
+              </Text>
             )}
           </View>
         ) : null}
-        {error ? <Text style={[theme.type.caption, { color: theme.colors.danger }]}>{error}</Text> : null}
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
-          <TextInput
-            editable={!locked}
-            multiline
-            onChangeText={setBody}
-            placeholder={locked ? 'Comments are closed' : replyTarget ? `Reply to @${replyTarget.authorUsername ?? 'someone'}` : 'Join the discussion'}
-            placeholderTextColor={theme.colors.secondary}
-            style={[theme.type.body, { flex: 1, color: theme.colors.text, maxHeight: 120, paddingVertical: 8 }]}
-            testID="comment-input"
-            value={body}
-          />
-          <Pressable
-            accessibilityRole="button"
-            disabled={locked || !body.trim() || create.isPending}
-            onPress={() => {
-              if (locked || !body.trim()) return;
-              if (!session) {
-                usePending.getState().setPending(`/post/${postId}`);
-                router.push('/(auth)/sign-in');
-                return;
-              }
-              create.mutate();
-            }}
-            style={{
-              minHeight: 36,
-              paddingHorizontal: 14,
-              borderRadius: theme.radius.pill,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: theme.colors.primary,
-              opacity: locked || !body.trim() || create.isPending ? 0.4 : 1,
-            }}
-            testID="comment-submit"
-          >
-            <Text style={[theme.type.caption, { color: theme.colors.onPrimary, fontWeight: '600' }]}>{create.isPending ? 'Sending…' : 'Send'}</Text>
-          </Pressable>
-        </View>
+        {session && error ? <Text style={[theme.type.caption, { color: theme.colors.danger }]}>{error}</Text> : null}
+        {session ? (
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+            <TextInput
+              editable={!locked}
+              multiline
+              onChangeText={setBody}
+              placeholder={locked ? 'Comments are closed' : replyTarget ? `Reply to @${replyTarget.authorUsername ?? 'someone'}` : 'Join the discussion'}
+              placeholderTextColor={theme.colors.secondary}
+              style={[theme.type.body, { flex: 1, color: theme.colors.text, maxHeight: 120, paddingVertical: 8 }]}
+              testID="comment-input"
+              value={body}
+            />
+            <Pressable
+              accessibilityRole="button"
+              disabled={locked || !body.trim() || create.isPending}
+              onPress={() => {
+                if (locked || !body.trim()) return;
+                if (!session) {
+                  usePending.getState().setPending(`/post/${postId}`);
+                  router.push('/(auth)/sign-in');
+                  return;
+                }
+                create.mutate();
+              }}
+              style={{
+                minHeight: 36,
+                paddingHorizontal: 14,
+                borderRadius: theme.radius.pill,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: theme.colors.primary,
+                opacity: locked || !body.trim() || create.isPending ? 0.4 : 1,
+              }}
+              testID="comment-submit"
+            >
+              <Text style={[theme.type.caption, { color: theme.colors.onPrimary, fontWeight: '600' }]}>{create.isPending ? 'Sending…' : 'Send'}</Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
       {actions.dialogs}
     </KeyboardAvoidingView>

@@ -3,16 +3,9 @@ import { Pressable, Text, TextInput } from 'react-native';
 
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { REPORT_REASONS } from '@/constants/reportReasons';
 import { useTheme } from '@/theme/ThemeProvider';
 import type { ReportReason } from '@/types';
-
-const REASONS: { value: ReportReason; label: string }[] = [
-  { value: 'harassment', label: 'Harassment' },
-  { value: 'hate_or_threats', label: 'Hate or threats' },
-  { value: 'spam_or_scam', label: 'Spam or scam' },
-  { value: 'personal_information', label: 'Personal information' },
-  { value: 'other', label: 'Other' },
-];
 
 export function ReportDialog({
   visible,
@@ -31,7 +24,7 @@ export function ReportDialog({
   return (
     <BottomSheet onClose={onClose} visible={visible}>
       <Text style={[theme.type.section, { color: theme.colors.text, marginBottom: theme.spacing.md }]}>Report</Text>
-      {REASONS.map((item) => {
+      {REPORT_REASONS.map((item) => {
         const selected = item.value === reason;
         return (
           <Pressable

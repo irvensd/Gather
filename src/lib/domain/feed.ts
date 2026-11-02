@@ -4,19 +4,27 @@ export interface Rankable {
   id: string;
   score: number;
   createdAt: string;
+  commentCount?: number;
+  prayedCount?: number;
 }
 
-/** Recency-weighted score. New posts stay visible when vote counts are still small. */
-export function hotScore(score: number, createdAt: string, now = Date.now()): number {
-  const hours = Math.max(0, now - new Date(createdAt).getTime()) / 3_600_000;
-  return (score + 1) / (hours + 2) ** 1.5;
+/**
+ * Popular order.
+ * A thumb counts as 1, a reply as 2, and an "I prayed" as 1.
+ * That total fades as the post ages, so a new conversation can still surface
+ * before an old post that collected votes weeks ago.
+ */
+export function hotScore(post: Pick<Rankable, 'score' | 'createdAt' | 'commentCount' | 'prayedCount'>, now = Date.now()): number {
+  const hours = Math.max(0, now - new Date(post.createdAt).getTime()) / 3_600_000;
+  const interest = post.score + (post.commentCount ?? 0) * 2 + (post.prayedCount ?? 0);
+  return (interest + 1) / (hours + 2) ** 1.5;
 }
 
 export function sortFeed<T extends Rankable>(posts: readonly T[], filter: FeedFilter, now = Date.now()): T[] {
   const copy = [...posts];
   if (filter === 'popular') {
     copy.sort((a, b) => {
-      const delta = hotScore(b.score, b.createdAt, now) - hotScore(a.score, a.createdAt, now);
+      const delta = hotScore(b, now) - hotScore(a, now);
       if (delta !== 0) return delta;
       return b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id);
     });

@@ -12,6 +12,8 @@ export function ConfirmationDialog({
   destructive,
   onConfirm,
   onCancel,
+  secondaryLabel,
+  onSecondary,
 }: {
   visible: boolean;
   title: string;
@@ -20,6 +22,8 @@ export function ConfirmationDialog({
   destructive?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  secondaryLabel?: string;
+  onSecondary?: () => void;
 }) {
   const theme = useTheme();
   return (
@@ -34,6 +38,7 @@ export function ConfirmationDialog({
             ) : (
               <PrimaryButton label={confirmLabel} onPress={onConfirm} />
             )}
+            {secondaryLabel && onSecondary ? <SecondaryButton label={secondaryLabel} onPress={onSecondary} /> : null}
             <SecondaryButton label="Cancel" onPress={onCancel} />
           </View>
         </Pressable>

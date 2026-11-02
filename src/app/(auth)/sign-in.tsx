@@ -16,6 +16,18 @@ export default function SignInScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const form = useForm<SignInValues>({ resolver: zodResolver(signInSchema), defaultValues: { email: '', password: '' } });
+  const box = [
+    theme.type.body,
+    {
+      color: theme.colors.text,
+      minHeight: 48,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.radius.md,
+      backgroundColor: theme.colors.surface,
+      paddingHorizontal: theme.spacing.md,
+    },
+  ];
   return (
     <ScreenContainer>
       <View style={{ padding: theme.spacing.xl, gap: theme.spacing.lg }}>
@@ -26,13 +38,49 @@ export default function SignInScreen() {
             This phone has sample accounts because Supabase is not connected. Try mira@demo.gather or rowan@demo.gather. Password: gather-demo. Rowan can review reports. Or create your own account. It stays on this device.
           </Text>
         ) : null}
-        <Controller control={form.control} name="email" render={({ field }) => (
-          <TextInput autoCapitalize="none" autoComplete="email" keyboardType="email-address" onChangeText={field.onChange} placeholder="Email" placeholderTextColor={theme.colors.secondary} style={[theme.type.body, inputStyle(theme)]} testID="sign-in-email" value={field.value} />
-        )} />
-        <Controller control={form.control} name="password" render={({ field }) => (
-          <TextInput onChangeText={field.onChange} placeholder="Password" placeholderTextColor={theme.colors.secondary} secureTextEntry style={[theme.type.body, inputStyle(theme)]} testID="sign-in-password" value={field.value} />
-        )} />
-        {error ? <Text style={[theme.type.caption, { color: theme.colors.danger }]}>{error}</Text> : null}
+        <Controller
+          control={form.control}
+          name="email"
+          render={({ field, fieldState }) => (
+            <View style={{ gap: theme.spacing.sm }}>
+              <Text style={[theme.type.body, { color: theme.colors.text, fontWeight: '600' }]}>Email</Text>
+              <TextInput
+                accessibilityLabel="Email"
+                autoCapitalize="none"
+                autoComplete="email"
+                keyboardType="email-address"
+                onChangeText={field.onChange}
+                placeholder="you@email.com"
+                placeholderTextColor={theme.colors.secondary}
+                style={box}
+                testID="sign-in-email"
+                value={field.value}
+              />
+              {fieldState.error ? <Text style={[theme.type.body, { color: theme.colors.danger }]}>{fieldState.error.message}</Text> : null}
+            </View>
+          )}
+        />
+        <Controller
+          control={form.control}
+          name="password"
+          render={({ field, fieldState }) => (
+            <View style={{ gap: theme.spacing.sm }}>
+              <Text style={[theme.type.body, { color: theme.colors.text, fontWeight: '600' }]}>Password</Text>
+              <TextInput
+                accessibilityLabel="Password"
+                onChangeText={field.onChange}
+                placeholder="Your password"
+                placeholderTextColor={theme.colors.secondary}
+                secureTextEntry
+                style={box}
+                testID="sign-in-password"
+                value={field.value}
+              />
+              {fieldState.error ? <Text style={[theme.type.body, { color: theme.colors.danger }]}>{fieldState.error.message}</Text> : null}
+            </View>
+          )}
+        />
+        {error ? <Text style={[theme.type.body, { color: theme.colors.danger }]}>{error}</Text> : null}
         <PrimaryButton label="Sign in" loading={loading} onPress={form.handleSubmit(async (values) => {
           setLoading(true);
           setError(null);
@@ -51,8 +99,4 @@ export default function SignInScreen() {
       </View>
     </ScreenContainer>
   );
-}
-
-function inputStyle(theme: ReturnType<typeof useTheme>) {
-  return { borderBottomWidth: 1, borderBottomColor: theme.colors.border, color: theme.colors.text, minHeight: 48 };
 }

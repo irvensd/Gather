@@ -36,6 +36,13 @@
       "expo-secure-store",
       "expo-sqlite",
       [
+        "expo-notifications",
+        {
+          "color": "#244F46",
+          "defaultChannel": "default"
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "Gather uses a photo you choose for your profile avatar.",
@@ -46,6 +53,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "f1a98f07-1c53-4c15-bb09-ae64553ea12c"
+      }
+    },
+    "owner": "irvensd"
   }
 }

@@ -6,14 +6,18 @@ import { useTheme } from '@/theme/ThemeProvider';
 import type { VoteValue } from '@/types';
 
 export function VoteControl({
-  score,
+  upvotes,
+  downvotes,
   value,
   disabled,
+  labeled = false,
   onVote,
 }: {
-  score: number;
+  upvotes: number;
+  downvotes: number;
   value: VoteValue;
   disabled?: boolean;
+  labeled?: boolean;
   onVote: (value: -1 | 1) => void;
 }) {
   const theme = useTheme();
@@ -22,14 +26,35 @@ export function VoteControl({
     void Haptics.selectionAsync().catch(() => undefined);
     onVote(next);
   };
+  const iconSize = labeled ? 24 : 20;
+  const count = (selected: boolean, color: string) => [
+    labeled ? theme.type.body : theme.type.caption,
+    { color: selected ? color : theme.colors.text, fontWeight: '600' as const, fontVariant: ['tabular-nums' as const] },
+  ];
+  const side = { minHeight: 44, flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4, paddingRight: 8 };
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-      <Pressable accessibilityLabel="Upvote" disabled={disabled} hitSlop={8} onPress={() => press(1)} style={{ paddingVertical: 4, paddingRight: 4 }}>
-        <Ionicons color={value === 1 ? theme.colors.primary : theme.colors.secondary} name={value === 1 ? 'arrow-up' : 'arrow-up-outline'} size={18} />
+      <Pressable
+        accessibilityLabel={`Thumbs up, ${upvotes}`}
+        accessibilityRole="button"
+        accessibilityState={{ selected: value === 1, disabled }}
+        disabled={disabled}
+        onPress={() => press(1)}
+        style={side}
+      >
+        <Ionicons color={value === 1 ? theme.colors.primary : theme.colors.muted} name={value === 1 ? 'thumbs-up' : 'thumbs-up-outline'} size={iconSize} />
+        <Text style={count(value === 1, theme.colors.primary)}>{upvotes}</Text>
       </Pressable>
-      <Text style={[theme.type.caption, { color: value === 0 ? theme.colors.secondary : theme.colors.text, minWidth: 16, textAlign: 'center', fontWeight: '600' }]}>{score}</Text>
-      <Pressable accessibilityLabel="Downvote" disabled={disabled} hitSlop={8} onPress={() => press(-1)} style={{ paddingVertical: 4, paddingLeft: 4 }}>
-        <Ionicons color={value === -1 ? theme.colors.danger : theme.colors.secondary} name={value === -1 ? 'arrow-down' : 'arrow-down-outline'} size={18} />
+      <Pressable
+        accessibilityLabel={`Thumbs down, ${downvotes}`}
+        accessibilityRole="button"
+        accessibilityState={{ selected: value === -1, disabled }}
+        disabled={disabled}
+        onPress={() => press(-1)}
+        style={side}
+      >
+        <Ionicons color={value === -1 ? theme.colors.danger : theme.colors.muted} name={value === -1 ? 'thumbs-down' : 'thumbs-down-outline'} size={iconSize} />
+        <Text style={count(value === -1, theme.colors.danger)}>{downvotes}</Text>
       </Pressable>
     </View>
   );

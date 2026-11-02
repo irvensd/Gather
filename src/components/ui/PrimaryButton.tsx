@@ -31,7 +31,7 @@ export function PrimaryButton({
         alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: theme.spacing.lg,
-        opacity: inactive ? 0.45 : pressed ? 0.85 : 1,
+        opacity: inactive ? 0.45 : pressed ? 0.72 : 1,
       })}
     >
       {loading ? (

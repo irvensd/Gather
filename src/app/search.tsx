@@ -7,6 +7,7 @@ import { PostCard } from '@/components/feed/PostCard';
 import { IconButton } from '@/components/ui/IconButton';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { SearchField } from '@/components/ui/SearchField';
+import { readableCommunityName } from '@/constants/communities';
 import { useContentActions } from '@/features/posts/actions';
 import { getApi } from '@/lib/backend';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -35,7 +36,7 @@ export default function SearchScreen() {
           <View>
             {results.data?.communities.map((community) => (
               <Pressable key={community.id} onPress={() => router.push(`/community/${community.slug}`)} style={{ padding: theme.spacing.lg }}>
-                <Text style={[theme.type.section, { color: theme.colors.text }]}>c/{community.name}</Text>
+                <Text style={[theme.type.section, { color: theme.colors.text }]}>{readableCommunityName(community.name)}</Text>
                 <Text style={[theme.type.caption, { color: theme.colors.secondary }]}>{community.description}</Text>
               </Pressable>
             ))}
@@ -46,9 +47,10 @@ export default function SearchScreen() {
             onAuthor={() => item.authorUsername && router.push(`/user/${item.authorUsername}`)}
             onCommunity={() => router.push(`/community/${item.communitySlug}`)}
             onMenu={() => actions.openPostMenu(item)}
-            onPress={() => router.push(`/post/${item.id}`)}
-            onReference={() => undefined}
             onSave={() => actions.savePost(item)}
+            onPress={() => router.push(`/post/${item.id}`)}
+            onReference={(reference) => router.push({ pathname: '/scripture', params: { book: reference.book, chapter: String(reference.chapter), start: String(reference.verseStart), end: String(reference.verseEnd) } })}
+            onPray={() => actions.prayPost(item)}
             onVote={(value) => actions.votePost(item, value)}
             post={item}
           />

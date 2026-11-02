@@ -822,8 +822,12 @@ begin
       row_number() over (
         order by
           case when p_filter = 'popular' then
-            (coalesce((select sum(value) from public.post_votes v where v.post_id = p.id), 0) + 1)::float8
-            / power(extract(epoch from (now() - p.created_at)) / 3600.0 + 2, 1.5)
+            (
+              coalesce((select sum(value) from public.post_votes v where v.post_id = p.id), 0)
+              + coalesce((select count(*) from public.comments c where c.post_id = p.id and c.status = 'published'), 0) * 2
+              + 1
+            )::float8
+            / power(greatest(extract(epoch from (now() - p.created_at)) / 3600.0, 0) + 2, 1.5)
           else 0 end desc,
           p.created_at desc,
           p.id desc

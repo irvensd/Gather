@@ -54,13 +54,14 @@ export interface DemoComment {
 export interface DemoState {
   users: DemoUser[];
   sessionUserId: string | null;
-  communities: { id: string; slug: string; name: string; description: string; icon: string; rules: string }[];
+  communities: { id: string; slug: string; name: string; description: string; icon: string; rules: string; createdByUserId?: string | null; topic?: string | null; color?: string | null }[];
   memberships: { userId: string; communityId: string; createdAt: string }[];
   posts: DemoPost[];
   comments: DemoComment[];
   postVotes: { userId: string; postId: string; value: -1 | 1 }[];
   commentVotes: { userId: string; commentId: string; value: -1 | 1 }[];
   saves: { userId: string; postId: string; createdAt: string }[];
+  prayers: { userId: string; postId: string }[];
   notifications: {
     id: string;
     recipientId: string;
@@ -70,6 +71,8 @@ export interface DemoState {
     commentId: string | null;
     isRead: boolean;
     createdAt: string;
+    count?: number | null;
+    detail?: string | null;
   }[];
   reports: {
     id: string;
@@ -97,5 +100,5 @@ export interface DemoState {
     createdAt: string;
   }[];
   rateEvents: { userId: string; action: string; createdAt: string }[];
-  preferences: { userId: string; replies: boolean; mentions: boolean }[];
+  preferences: { userId: string; replies: boolean; mentions: boolean; encouragement?: boolean }[];
 }

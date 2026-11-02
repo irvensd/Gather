@@ -5,8 +5,10 @@ import { Pressable, ScrollView, Text } from 'react-native';
 
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
+import { readableCommunityName } from '@/constants/communities';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { getApi } from '@/lib/backend';
+import { usePending } from '@/store/pending';
 import { useTheme } from '@/theme/ThemeProvider';
 
 export default function InterestsScreen() {
@@ -23,14 +25,15 @@ export default function InterestsScreen() {
           const on = selected.includes(community.id);
           return (
             <Pressable key={community.id} onPress={() => setSelected((current) => on ? current.filter((id) => id !== community.id) : [...current, community.id])} style={{ padding: theme.spacing.md, borderRadius: theme.radius.md, backgroundColor: on ? theme.colors.highlight : theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border }}>
-              <Text style={[theme.type.section, { color: theme.colors.text }]}>c/{community.name}</Text>
+              <Text style={[theme.type.section, { color: theme.colors.text }]}>{readableCommunityName(community.name)}</Text>
               <Text style={[theme.type.caption, { color: theme.colors.secondary }]}>{community.description}</Text>
             </Pressable>
           );
         })}
-        <PrimaryButton label="Enter Gather" onPress={async () => {
+        <PrimaryButton label="Done" onPress={async () => {
           const api = await getApi();
           for (const id of selected) await api.setMembership(id, true);
+          usePending.getState().clearPending();
           await api.updateProfile({ onboardingStep: 'done' });
           await refreshProfile();
           router.replace('/');

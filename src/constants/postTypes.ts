@@ -35,3 +35,10 @@ export const POST_TYPES: {
 export function postTypeLabel(type: PostType): string {
   return POST_TYPES.find((item) => item.type === type)?.label ?? 'Post';
 }
+
+export function postByline(type: PostType, authorName: string): string {
+  if (type === 'question') return `${authorName} asked`;
+  if (type === 'testimony') return `${authorName} shared`;
+  if (type === 'prayer_request') return `${authorName} asked for prayer`;
+  return `${authorName} posted`;
+}

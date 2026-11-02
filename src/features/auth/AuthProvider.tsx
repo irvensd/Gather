@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { getApi } from '@/lib/backend';
+import { queryClient } from '@/lib/queryClient';
 import type { AppSession, Profile } from '@/types';
 
 interface AuthValue {
@@ -16,6 +17,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [session, setSession] = useState<AppSession | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const sessionRef = useRef<AppSession | null>(null);
 
   const loadProfile = useCallback(async (next: AppSession | null) => {
     if (!next) {
@@ -33,11 +35,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const api = await getApi();
       const current = await api.getSession();
       if (!active) return;
+      sessionRef.current = current;
       setSession(current);
       await loadProfile(current);
       if (!active) return;
       setReady(true);
       unsubscribe = api.onAuthChange((next) => {
+        if ((sessionRef.current?.userId ?? null) !== (next?.userId ?? null)) queryClient.clear();
+        sessionRef.current = next;
         setSession(next);
         void loadProfile(next);
       });

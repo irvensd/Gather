@@ -24,5 +24,6 @@ export const COMMUNITY_GUIDELINES = [
 export const ACCOUNT_DELETION_POLICY =
   'Deleting your account removes your sign-in, profile, avatar, votes, saved posts, community memberships, blocks, and notifications. Posts and comments you wrote stay in their threads so other people’s conversations remain intact, but your name is removed and they appear as written by a deleted user. This cannot be undone.';
 
-export const PUBLIC_POST_NOTICE =
-  'Posts are public. People can read them without an account. Prayer requests do not add any contact details beyond what you write.';
+export const PUBLIC_POST_NOTICE = 'Public. Anyone can read this, even without an account.';
+
+export const PRAYER_POST_NOTICE = 'Share only what you want strangers to read. Nothing private is added for you.';

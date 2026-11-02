@@ -1,3 +1,5 @@
+import { EXTRA_COMMUNITIES } from '@/constants/moreCommunities';
+
 export interface CommunityDefinition {
   id: string;
   slug: string;
@@ -107,8 +109,10 @@ export const CURATED_COMMUNITIES: readonly CommunityDefinition[] = [
       'Do not post another person’s crisis for them.',
     ]),
   },
+  ...EXTRA_COMMUNITIES,
 ];
 
-export function communityLabel(name: string): string {
-  return `c/${name}`;
+export function readableCommunityName(name: string): string {
+  const spaced = name.includes(' ') ? name : name.replace(/([a-z])([A-Z])/g, '$1 $2');
+  return `c/${spaced}`;
 }

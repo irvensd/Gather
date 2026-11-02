@@ -1,20 +1,41 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, Text } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { ReportDialog } from '@/components/ui/ReportDialog';
+import { type ModerationAction } from '@/constants/moderationReasons';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { patchPost, withVote } from '@/features/feed/cache';
+import { ModerationSheet } from '@/features/moderation/ModerationSheet';
 import { getApi } from '@/lib/backend';
 import { AppError } from '@/lib/backend/errors';
+import { membershipNotice } from '@/lib/communityBrowse';
 import { nextVote } from '@/lib/domain/votes';
 import { queryClient } from '@/lib/queryClient';
+import { sharePost } from '@/lib/share';
 import { usePending, type PendingAction } from '@/store/pending';
+import { useToast } from '@/store/toast';
 import { useTheme } from '@/theme/ThemeProvider';
 import type { Comment, PostCard, ReportReason, VoteValue } from '@/types';
+
+interface PendingModeration {
+  action: ModerationAction;
+  targetType: 'post' | 'comment';
+  targetId: string;
+  postId: string;
+  communityId: string;
+}
+
+function moderationToast(action: ModerationAction, targetType: 'post' | 'comment') {
+  if (action === 'remove') return targetType === 'post' ? 'Post removed' : 'Comment removed';
+  if (action === 'lock') return 'Discussion locked';
+  if (action === 'unlock') return 'Discussion unlocked';
+  return 'Report dismissed';
+}
 
 function signInFirst(returnTo: string, action?: PendingAction) {
   usePending.getState().setPending(returnTo, action ?? null);
@@ -24,7 +45,8 @@ function signInFirst(returnTo: string, action?: PendingAction) {
 export function useContentActions(returnTo: string) {
   const { session } = useAuth();
   const client = useQueryClient();
-  const [menu, setMenu] = useState<{ kind: 'post' | 'comment'; post?: PostCard; comment?: Comment } | null>(null);
+  const [menu, setMenu] = useState<{ kind: 'post' | 'comment'; post?: PostCard; comment?: Comment; communityId?: string } | null>(null);
+  const [moderation, setModeration] = useState<(PendingModeration & { key: number }) | null>(null);
   const [report, setReport] = useState<{ targetType: 'post' | 'comment'; targetId: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ title: string; message: string; confirmLabel: string; run: () => Promise<void> } | null>(null);
@@ -53,17 +75,48 @@ export function useContentActions(returnTo: string) {
       setNotice(error instanceof AppError ? error.message : 'Could not save your vote.');
     },
     onSuccess: ({ result }, { post }) => {
-      patchPost(client, post.id, (item) => ({ ...item, score: result.score, userVote: result.userVote as VoteValue }));
+      patchPost(client, post.id, (item) => ({
+        ...item,
+        score: result.score,
+        upvotes: result.upvotes,
+        downvotes: result.downvotes,
+        userVote: result.userVote as VoteValue,
+      }));
     },
   });
 
   const save = useMutation({
     mutationFn: async (post: PostCard) => (await getApi()).setSaved(post.id, !post.saved),
     onMutate: async (post) => {
-      patchPost(client, post.id, (item) => ({ ...item, saved: !item.saved }));
+      const next = !post.saved;
+      patchPost(client, post.id, (item) => ({ ...item, saved: next }));
+      client.setQueryData<PostCard[]>(['saved'], (list) => {
+        if (!list) return list;
+        if (!next) return list.filter((item) => item.id !== post.id);
+        const updated = { ...post, saved: true };
+        return list.some((item) => item.id === post.id) ? list.map((item) => (item.id === post.id ? updated : item)) : [updated, ...list];
+      });
     },
+    onSuccess: (_result, post) => useToast.getState().show(post.saved ? 'Removed from saved' : 'Saved'),
     onError: (error) => setNotice(error instanceof AppError ? error.message : 'Could not update saved posts.'),
     onSettled: () => void client.invalidateQueries({ queryKey: ['saved'] }),
+  });
+
+  const pray = useMutation({
+    mutationFn: async (post: PostCard) => (await getApi()).setPrayed(post.id, !post.userPrayed),
+    onMutate: async (post) => {
+      const next = !post.userPrayed;
+      patchPost(client, post.id, (item) => ({
+        ...item,
+        userPrayed: next,
+        prayedCount: Math.max(0, (item.prayedCount ?? 0) + (next ? 1 : -1)),
+      }));
+    },
+    onError: (error, post) => {
+      void client.invalidateQueries({ queryKey: ['feed'] });
+      void client.invalidateQueries({ queryKey: ['post', post.id] });
+      setNotice(error instanceof AppError ? error.message : error instanceof Error ? error.message : 'Could not save that prayer.');
+    },
   });
 
   function votePost(post: PostCard, direction: -1 | 1) {
@@ -82,26 +135,40 @@ export function useContentActions(returnTo: string) {
     save.mutate(post);
   }
 
-  const canMod = (communityId: string) =>
-    !!capabilities.data && (capabilities.data.isAdmin || capabilities.data.communityIds.includes(communityId));
+  function prayPost(post: PostCard) {
+    if (!session) {
+      signInFirst(returnTo, { type: 'pray', postId: post.id, prayed: !post.userPrayed });
+      return;
+    }
+    pray.mutate(post);
+  }
 
-  function moderatePost(post: PostCard, action: 'remove' | 'lock' | 'unlock') {
+  const canMod = (communityId: string) => !!capabilities.data && (capabilities.data.isAdmin || capabilities.data.communityIds.includes(communityId));
+
+  function startModeration(next: PendingModeration) {
     setMenu(null);
-    setConfirm({
-      title: action === 'remove' ? 'Remove this post?' : action === 'lock' ? 'Lock this discussion?' : 'Unlock this discussion?',
-      message: 'This is recorded in the moderation history.',
-      confirmLabel: 'Continue',
-      run: async () => {
-        await (await getApi()).moderate({
-          communityId: post.communityId,
-          targetType: 'post',
-          targetId: post.id,
-          action,
-          reason: 'Moderator review',
-        });
-        await client.invalidateQueries();
-      },
-    });
+    setModeration({ ...next, key: Date.now() });
+  }
+
+  async function runModeration(reason: string) {
+    if (!moderation) return;
+    const { communityId, targetType, targetId, postId, action } = moderation;
+    try {
+      await (await getApi()).moderate({ communityId, targetType, targetId, action, reason });
+    } catch (error) {
+      setModeration(null);
+      setNotice(error instanceof Error ? error.message : 'Something went wrong.');
+      return;
+    }
+    setModeration(null);
+    useToast.getState().show(moderationToast(action, targetType));
+    await Promise.all([
+      client.invalidateQueries({ queryKey: ['comments', postId] }),
+      client.invalidateQueries({ queryKey: ['post', postId] }),
+      client.invalidateQueries({ queryKey: ['feed'] }),
+      client.invalidateQueries({ queryKey: ['community'] }),
+      client.invalidateQueries({ queryKey: ['moderation-history'] }),
+    ]);
   }
 
   const dialogs = (
@@ -109,11 +176,28 @@ export function useContentActions(returnTo: string) {
       <BottomSheet onClose={() => setMenu(null)} visible={!!menu}>
         {menu?.post ? (
           <>
-            <MenuItem label="Open discussion" onPress={() => { setMenu(null); router.push(`/post/${menu.post!.id}`); }} />
+            <MenuItem
+              icon="share-outline"
+              label="Share"
+              onPress={() => {
+                const post = menu.post!;
+                setMenu(null);
+                void sharePost(post);
+              }}
+            />
             {menu.post.authorId === session?.userId ? (
               <>
-                <MenuItem label="Edit" onPress={() => { setMenu(null); router.push(`/compose?postId=${menu.post!.id}`); }} />
                 <MenuItem
+                  icon="create-outline"
+                  label="Edit"
+                  onPress={() => {
+                    setMenu(null);
+                    router.push(`/compose?postId=${menu.post!.id}`);
+                  }}
+                />
+                <MenuItem
+                  destructive
+                  icon="trash-outline"
                   label="Delete"
                   onPress={() => {
                     const post = menu.post!;
@@ -133,6 +217,7 @@ export function useContentActions(returnTo: string) {
             ) : (
               <>
                 <MenuItem
+                  icon="flag-outline"
                   label="Report"
                   onPress={() => {
                     setReport({ targetType: 'post', targetId: menu.post!.id });
@@ -141,6 +226,7 @@ export function useContentActions(returnTo: string) {
                 />
                 {menu.post.authorId ? (
                   <MenuItem
+                    icon="ban-outline"
                     label="Block author"
                     onPress={() => {
                       const authorId = menu.post!.authorId!;
@@ -165,14 +251,40 @@ export function useContentActions(returnTo: string) {
             )}
             {canMod(menu.post.communityId) ? (
               <>
-                <MenuItem label={menu.post.isLocked ? 'Unlock discussion' : 'Lock discussion'} onPress={() => moderatePost(menu.post!, menu.post!.isLocked ? 'unlock' : 'lock')} />
-                <MenuItem label="Remove post" onPress={() => moderatePost(menu.post!, 'remove')} />
+                <MenuSection label="Moderator" />
+                <MenuItem
+                  icon={menu.post.isLocked ? 'lock-open-outline' : 'lock-closed-outline'}
+                  label={menu.post.isLocked ? 'Unlock discussion' : 'Lock discussion'}
+                  onPress={() => {
+                    const post = menu.post!;
+                    startModeration({
+                      action: post.isLocked ? 'unlock' : 'lock',
+                      targetType: 'post',
+                      targetId: post.id,
+                      postId: post.id,
+                      communityId: post.communityId,
+                    });
+                  }}
+                />
+                {menu.post.status === 'published' ? (
+                  <MenuItem
+                    destructive
+                    icon="trash-outline"
+                    label="Remove post"
+                    onPress={() => {
+                      const post = menu.post!;
+                      startModeration({ action: 'remove', targetType: 'post', targetId: post.id, postId: post.id, communityId: post.communityId });
+                    }}
+                  />
+                ) : null}
               </>
             ) : null}
           </>
         ) : null}
         {menu?.comment && menu.comment.authorId === session?.userId ? (
           <MenuItem
+            destructive
+            icon="trash-outline"
             label="Delete comment"
             onPress={() => {
               const comment = menu.comment!;
@@ -184,6 +296,10 @@ export function useContentActions(returnTo: string) {
                 run: async () => {
                   await (await getApi()).deleteComment(comment.id);
                   await client.invalidateQueries({ queryKey: ['comments', comment.postId] });
+                  await client.invalidateQueries({ queryKey: ['post', comment.postId] });
+                  await client.invalidateQueries({ queryKey: ['feed'] });
+                  await client.invalidateQueries({ queryKey: ['profile-posts'] });
+                  await client.invalidateQueries({ queryKey: ['profile-comments'] });
                 },
               });
             }}
@@ -192,6 +308,7 @@ export function useContentActions(returnTo: string) {
         {menu?.comment && menu.comment.authorId !== session?.userId ? (
           <>
             <MenuItem
+              icon="flag-outline"
               label="Report comment"
               onPress={() => {
                 setReport({ targetType: 'comment', targetId: menu.comment!.id });
@@ -200,6 +317,7 @@ export function useContentActions(returnTo: string) {
             />
             {menu.comment.authorId ? (
               <MenuItem
+                icon="ban-outline"
                 label="Block author"
                 onPress={() => {
                   const authorId = menu.comment!.authorId!;
@@ -219,7 +337,22 @@ export function useContentActions(returnTo: string) {
             ) : null}
           </>
         ) : null}
+        {menu?.comment && menu.communityId && menu.comment.status === 'published' && menu.comment.authorId !== session?.userId && canMod(menu.communityId) ? (
+          <>
+            <MenuSection label="Moderator" />
+            <MenuItem
+              destructive
+              icon="trash-outline"
+              label="Remove comment"
+              onPress={() => {
+                const comment = menu.comment!;
+                startModeration({ action: 'remove', targetType: 'comment', targetId: comment.id, postId: comment.postId, communityId: menu.communityId! });
+              }}
+            />
+          </>
+        ) : null}
       </BottomSheet>
+      <ModerationSheet key={moderation?.key ?? 'none'} onClose={() => setModeration(null)} onSubmit={runModeration} request={moderation} />
       <ReportDialog
         onClose={() => setReport(null)}
         onSubmit={async (reason: ReportReason, details: string) => {
@@ -247,25 +380,57 @@ export function useContentActions(returnTo: string) {
         title={confirm?.title ?? ''}
         visible={!!confirm}
       />
-      <ConfirmationDialog confirmLabel="OK" message={notice ?? ''} onCancel={() => setNotice(null)} onConfirm={() => setNotice(null)} title="Gather" visible={!!notice} />
+      <ConfirmationDialog
+        confirmLabel="OK"
+        message={notice ?? ''}
+        onCancel={() => setNotice(null)}
+        onConfirm={() => setNotice(null)}
+        title="Gather"
+        visible={!!notice}
+      />
     </>
   );
 
   return {
     votePost,
     savePost,
+    prayPost,
     openPostMenu: (post: PostCard) => setMenu({ kind: 'post', post }),
-    openCommentMenu: (comment: Comment) => setMenu({ kind: 'comment', comment }),
+    openCommentMenu: (comment: Comment, communityId?: string) => setMenu({ kind: 'comment', comment, communityId }),
     dialogs,
   };
 }
 
-function MenuItem({ label, onPress }: { label: string; onPress: () => void }) {
+function MenuItem({ label, onPress, icon, destructive }: { label: string; onPress: () => void; icon?: keyof typeof Ionicons.glyphMap; destructive?: boolean }) {
+  const theme = useTheme();
+  const color = destructive ? theme.colors.danger : theme.colors.text;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => ({
+        minHeight: 48,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.spacing.md,
+        marginHorizontal: -theme.spacing.sm,
+        paddingHorizontal: theme.spacing.sm,
+        borderRadius: theme.radius.md,
+        backgroundColor: pressed ? theme.colors.highlight : 'transparent',
+      })}
+    >
+      {icon ? <Ionicons color={color} name={icon} size={22} /> : null}
+      <Text style={[theme.type.body, { color, fontWeight: destructive ? '600' : '400' }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function MenuSection({ label }: { label: string }) {
   const theme = useTheme();
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={{ minHeight: 48, justifyContent: 'center' }}>
-      <Text style={[theme.type.body, { color: theme.colors.text }]}>{label}</Text>
-    </Pressable>
+    <View style={{ borderTopWidth: 1, borderTopColor: theme.colors.border, marginTop: theme.spacing.sm, paddingTop: theme.spacing.md }}>
+      <Text style={[theme.type.caption, { color: theme.colors.muted, fontWeight: '600', textTransform: 'uppercase' }]}>{label}</Text>
+    </View>
   );
 }
 
@@ -281,8 +446,12 @@ export async function resumePendingAction() {
     await api.votePost(action.postId, next);
   } else if (action.type === 'save') {
     await api.setSaved(action.postId, action.saved);
+  } else if (action.type === 'pray') {
+    await api.setPrayed(action.postId, action.prayed);
   } else if (action.type === 'join') {
     await api.setMembership(action.communityId, action.join);
+    const community = (await api.listCommunities()).find((item) => item.id === action.communityId);
+    if (community) useToast.getState().show(membershipNotice(community.name, action.join));
   }
   await queryClient.invalidateQueries();
 }

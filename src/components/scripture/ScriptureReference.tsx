@@ -23,7 +23,7 @@ export function ScriptureReference({
         paddingVertical: 6,
       }}
     >
-      <Text style={[theme.type.caption, { color: theme.colors.primary, fontWeight: '600' }]}>{reference.raw}</Text>
+      <Text style={[theme.type.body, { color: theme.colors.primary, fontWeight: '600' }]}>{reference.raw}</Text>
     </Pressable>
   );
 }

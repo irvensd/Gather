@@ -11,6 +11,12 @@ import { AppError } from '@/lib/backend/errors';
 import { signUpSchema, type SignUpValues } from '@/lib/validation/schemas';
 import { useTheme } from '@/theme/ThemeProvider';
 
+const FIELDS = [
+  { name: 'email', label: 'Email', placeholder: 'you@email.com', hint: 'This is not shown on your profile.', secure: false },
+  { name: 'password', label: 'Password', placeholder: 'At least 8 characters', hint: 'At least 8 characters.', secure: true },
+  { name: 'confirmPassword', label: 'Confirm password', placeholder: 'Type it again', hint: 'Type the same password again.', secure: true },
+] as const;
+
 export default function SignUpScreen() {
   const theme = useTheme();
   const [error, setError] = useState<string | null>(null);
@@ -22,24 +28,46 @@ export default function SignUpScreen() {
       <View style={{ padding: theme.spacing.xl, gap: theme.spacing.lg }}>
         <Text style={[theme.type.title, { color: theme.colors.text }]}>Create your account</Text>
         <Text style={[theme.type.body, { color: theme.colors.secondary }]}>You’ll choose a public username next. Your email is not shown on your profile.</Text>
-        {(['email', 'password', 'confirmPassword'] as const).map((name) => (
-          <Controller key={name} control={form.control} name={name} render={({ field, fieldState }) => (
-            <View>
-              <TextInput
-                autoCapitalize="none"
-                onChangeText={field.onChange}
-                placeholder={name === 'email' ? 'Email' : name === 'password' ? 'Password' : 'Confirm password'}
-                placeholderTextColor={theme.colors.secondary}
-                secureTextEntry={name !== 'email'}
-                style={[theme.type.body, { borderBottomWidth: 1, borderBottomColor: theme.colors.border, color: theme.colors.text, minHeight: 48 }]}
-                testID={`sign-up-${name}`}
-                value={field.value}
-              />
-              {fieldState.error ? <Text style={[theme.type.caption, { color: theme.colors.danger }]}>{fieldState.error.message}</Text> : null}
-            </View>
-          )} />
+        {FIELDS.map((item) => (
+          <Controller
+            key={item.name}
+            control={form.control}
+            name={item.name}
+            render={({ field, fieldState }) => (
+              <View style={{ gap: theme.spacing.sm }}>
+                <Text style={[theme.type.body, { color: theme.colors.text, fontWeight: '600' }]}>{item.label}</Text>
+                <TextInput
+                  accessibilityLabel={item.label}
+                  autoCapitalize="none"
+                  autoComplete={item.name === 'email' ? 'email' : 'password'}
+                  keyboardType={item.name === 'email' ? 'email-address' : 'default'}
+                  onChangeText={field.onChange}
+                  placeholder={item.placeholder}
+                  placeholderTextColor={theme.colors.secondary}
+                  secureTextEntry={item.secure}
+                  style={[
+                    theme.type.body,
+                    {
+                      color: theme.colors.text,
+                      minHeight: 48,
+                      borderWidth: 1,
+                      borderColor: theme.colors.border,
+                      borderRadius: theme.radius.md,
+                      backgroundColor: theme.colors.surface,
+                      paddingHorizontal: theme.spacing.md,
+                    },
+                  ]}
+                  testID={`sign-up-${item.name}`}
+                  value={field.value}
+                />
+                <Text style={[theme.type.body, { color: fieldState.error ? theme.colors.danger : theme.colors.muted }]}>
+                  {fieldState.error?.message ?? item.hint}
+                </Text>
+              </View>
+            )}
+          />
         ))}
-        {error ? <Text style={[theme.type.caption, { color: theme.colors.danger }]}>{error}</Text> : null}
+        {error ? <Text style={[theme.type.body, { color: theme.colors.danger }]}>{error}</Text> : null}
         {confirm ? <Text style={[theme.type.body, { color: theme.colors.text }]}>Check your email to confirm the account, then sign in.</Text> : null}
         <PrimaryButton label="Continue" loading={loading} onPress={form.handleSubmit(async (values) => {
           setLoading(true);

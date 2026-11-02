@@ -22,7 +22,7 @@ export function SegmentedFilter<T extends string>({
             accessibilityRole="tab"
             accessibilityState={{ selected }}
             onPress={() => onChange(option.value)}
-            style={{ minHeight: 36, justifyContent: 'center' }}
+            style={{ minHeight: 44, justifyContent: 'center' }}
           >
             <Text style={[theme.type.body, { color: selected ? theme.colors.text : theme.colors.secondary, fontWeight: selected ? '600' : '400' }]}>
               {option.label}

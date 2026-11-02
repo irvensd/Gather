@@ -1,6 +1,6 @@
 import type { InfiniteData, QueryClient } from '@tanstack/react-query';
 
-import { applyVoteToScore } from '@/lib/domain/votes';
+import { applyVoteCounts, applyVoteToScore } from '@/lib/domain/votes';
 import type { Page, PostCard, VoteValue } from '@/types';
 
 export function patchPost(queryClient: QueryClient, postId: string, updater: (post: PostCard) => PostCard) {
@@ -18,5 +18,10 @@ export function patchPost(queryClient: QueryClient, postId: string, updater: (po
 }
 
 export function withVote(post: PostCard, next: VoteValue): PostCard {
-  return { ...post, score: applyVoteToScore(post.score, post.userVote, next), userVote: next };
+  return {
+    ...post,
+    score: applyVoteToScore(post.score, post.userVote, next),
+    ...applyVoteCounts(post.upvotes ?? 0, post.downvotes ?? 0, post.userVote, next),
+    userVote: next,
+  };
 }

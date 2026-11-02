@@ -5,8 +5,22 @@ export type OnboardingStep = 'username' | 'interests' | 'done';
 export type FeedFilter = 'popular' | 'new' | 'following';
 export type CommentSort = 'helpful' | 'newest';
 export type VoteValue = -1 | 0 | 1;
+
+export interface VoteResult {
+  score: number;
+  upvotes: number;
+  downvotes: number;
+  userVote: VoteValue;
+}
 export type ReportReason = 'harassment' | 'hate_or_threats' | 'spam_or_scam' | 'personal_information' | 'other';
-export type NotificationType = 'post_reply' | 'comment_reply' | 'mention';
+export type NotificationType =
+  | 'post_reply'
+  | 'comment_reply'
+  | 'mention'
+  | 'prayer_milestone'
+  | 'vote_milestone'
+  | 'content_removed'
+  | 'new_report';
 export type ReportTargetType = 'post' | 'comment';
 export type ModerationActionType = 'remove' | 'lock' | 'unlock' | 'dismiss';
 
@@ -47,6 +61,10 @@ export interface Community {
   memberCount: number;
   joined: boolean;
   isActive: boolean;
+  createdByUsername?: string | null;
+  createdByDisplayName?: string | null;
+  topic?: string | null;
+  color?: string | null;
 }
 
 export interface PostCard {
@@ -67,9 +85,13 @@ export interface PostCard {
   status: ContentStatus;
   isLocked: boolean;
   score: number;
+  upvotes: number;
+  downvotes: number;
   commentCount: number;
   userVote: VoteValue;
   saved: boolean;
+  prayedCount: number;
+  userPrayed: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -89,8 +111,13 @@ export interface Comment {
   concealed: boolean;
   depth: number;
   score: number;
+  upvotes: number;
+  downvotes: number;
   userVote: VoteValue;
   createdAt: string;
+  /** Filled in on profile lists, so a comment can say which conversation it belongs to. */
+  postTitle?: string | null;
+  communityName?: string | null;
 }
 
 export interface AppNotification {
@@ -104,6 +131,16 @@ export interface AppNotification {
   commentId: string | null;
   isRead: boolean;
   createdAt: string;
+  actorAvatarPath?: string | null;
+  postTitle?: string | null;
+  postAvailable?: boolean;
+  communityName?: string | null;
+  communityIcon?: string | null;
+  communityColor?: string | null;
+  /** A line of the reply or mention, or the moderator's reason for a removal or report. */
+  snippet?: string | null;
+  /** The milestone reached, for prayer and thumbs-up notifications. */
+  count?: number | null;
 }
 
 export interface ReportItem {
@@ -119,11 +156,34 @@ export interface ReportItem {
   status: 'open' | 'dismissed' | 'actioned';
   excerpt: string;
   createdAt: string;
+  /** The post to open: the reported post itself, or the post a reported comment sits under. */
+  postId?: string | null;
+  communityIcon?: string | null;
+  communityColor?: string | null;
+}
+
+export interface CommunityModerator {
+  userId: string;
+  username: string;
+  displayName: string | null;
+  avatarPath: string | null;
+  /** The person who started the community. They manage the moderator list and cannot be removed. */
+  isStarter: boolean;
+}
+
+export interface UpdateCommunityInput {
+  description: string;
+  rules: string;
+  icon: string;
+  color: string;
+  topic: string;
 }
 
 export interface NotificationPreferences {
   replies: boolean;
   mentions: boolean;
+  /** Prayers and thumbs-up milestones on your posts. */
+  encouragement?: boolean;
 }
 
 export interface Capabilities {

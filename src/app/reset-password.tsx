@@ -15,8 +15,32 @@ export default function ResetPasswordScreen() {
     <ScreenContainer>
       <View style={{ padding: theme.spacing.xl, gap: theme.spacing.lg }}>
         <Text style={[theme.type.title, { color: theme.colors.text }]}>Choose a new password</Text>
-        <TextInput onChangeText={setPassword} placeholder="New password" placeholderTextColor={theme.colors.secondary} secureTextEntry style={[theme.type.body, { color: theme.colors.text, minHeight: 48 }]} value={password} />
-        {message ? <Text style={[theme.type.body, { color: theme.colors.text }]}>{message}</Text> : null}
+        <View style={{ gap: theme.spacing.sm }}>
+          <Text style={[theme.type.body, { color: theme.colors.text, fontWeight: '600' }]}>New password</Text>
+          <TextInput
+            accessibilityLabel="New password"
+            onChangeText={setPassword}
+            placeholder="At least 8 characters"
+            placeholderTextColor={theme.colors.secondary}
+            secureTextEntry
+            style={[
+              theme.type.body,
+              {
+                color: theme.colors.text,
+                minHeight: 48,
+                borderWidth: 1,
+                borderColor: theme.colors.border,
+                borderRadius: theme.radius.md,
+                backgroundColor: theme.colors.surface,
+                paddingHorizontal: theme.spacing.md,
+              },
+            ]}
+            value={password}
+          />
+          <Text style={[theme.type.body, { color: message && message !== 'Password updated.' ? theme.colors.danger : theme.colors.muted }]}>
+            {message ?? 'At least 8 characters.'}
+          </Text>
+        </View>
         <PrimaryButton label="Update password" onPress={async () => {
           try {
             await (await getApi()).updatePassword(password);

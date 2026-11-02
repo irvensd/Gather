@@ -22,7 +22,7 @@ export class AppError extends Error {
 const MESSAGE_BY_TOKEN: Record<string, { message: string; code: AppErrorCode }> = {
   AUTH_REQUIRED: { message: 'Sign in to continue.', code: 'auth' },
   INVALID_INPUT: { message: 'Check the form and try again.', code: 'validation' },
-  USERNAME_TAKEN: { message: 'That username is taken.', code: 'conflict' },
+  USERNAME_TAKEN: { message: 'That username is already in use.', code: 'conflict' },
   COMMUNITY_TAKEN: { message: 'A community with that name already exists.', code: 'conflict' },
   USERNAME_INVALID: { message: 'Choose a different username.', code: 'validation' },
   RATE_LIMIT: { message: 'You are doing that too quickly. Try again in a little while.', code: 'rate_limit' },
@@ -32,14 +32,35 @@ const MESSAGE_BY_TOKEN: Record<string, { message: string; code: AppErrorCode }> 
   SUSPENDED: { message: 'This account cannot post right now.', code: 'suspended' },
   SELF_ACTION: { message: 'You cannot do that to your own account.', code: 'validation' },
   MAX_DEPTH: { message: 'This thread is as deep as replies can go.', code: 'validation' },
+  NO_SUCH_USER: { message: 'No one has that username.', code: 'not_found' },
+  ALREADY_MODERATOR: { message: 'That person is already a moderator.', code: 'conflict' },
+  JOIN_FIRST: { message: 'That person needs to join the community first.', code: 'validation' },
+  STARTER_ONLY: { message: 'Only the person who started this community can change its moderators.', code: 'forbidden' },
+  STARTER_STAYS: { message: 'The person who started the community stays a moderator.', code: 'forbidden' },
 };
 
+function errorText(error: unknown): string {
+  if (typeof error === 'string') return error;
+  if (error instanceof Error) {
+    const extra = error as Error & { details?: string; hint?: string; code?: string };
+    return [extra.message, extra.details, extra.hint, extra.code].filter(Boolean).join(' ');
+  }
+  if (error && typeof error === 'object') {
+    const extra = error as { message?: string; details?: string; hint?: string; code?: string };
+    return [extra.message, extra.details, extra.hint, extra.code].filter(Boolean).join(' ');
+  }
+  return String(error ?? '');
+}
+
 export function mapServerError(error: unknown): AppError {
-  if (error instanceof AppError) return error;
-  const message = error instanceof Error ? error.message : String(error);
+  const message = errorText(error);
   for (const [token, mapped] of Object.entries(MESSAGE_BY_TOKEN)) {
     if (message.includes(token)) return new AppError(mapped.message, mapped.code);
   }
+  if (/23505/.test(message) && /username/i.test(message)) {
+    return new AppError(MESSAGE_BY_TOKEN.USERNAME_TAKEN.message, 'conflict');
+  }
+  if (error instanceof AppError) return error;
   if (/network|fetch|offline/i.test(message)) {
     return new AppError('You appear to be offline. Try again when you are connected.', 'network');
   }

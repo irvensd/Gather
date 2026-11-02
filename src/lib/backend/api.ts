@@ -4,6 +4,7 @@ import type {
   Capabilities,
   Comment,
   Community,
+  CommunityModerator,
   CreatePostInput,
   FeedQuery,
   NotificationPreferences,
@@ -14,7 +15,9 @@ import type {
   ReportReason,
   ReportTargetType,
   ScriptureReference,
+  UpdateCommunityInput,
   UpdateProfileInput,
+  VoteResult,
   VoteValue,
 } from '@/types';
 
@@ -35,6 +38,9 @@ export interface ModerationHistoryItem {
   targetId: string;
   communityName: string;
   createdAt: string;
+  moderatorUsername?: string | null;
+  communityIcon?: string | null;
+  communityColor?: string | null;
 }
 
 export interface GatherApi {
@@ -53,7 +59,11 @@ export interface GatherApi {
   uploadAvatar(uri: string): Promise<Profile>;
   listCommunities(): Promise<Community[]>;
   getCommunity(slug: string): Promise<Community>;
-  createCommunity(input: { name: string; description: string; rules: string; icon: string }): Promise<Community>;
+  createCommunity(input: { name: string; description: string; rules: string; icon: string; topic: string; color: string }): Promise<Community>;
+  updateCommunity(id: string, input: UpdateCommunityInput): Promise<Community>;
+  listCommunityModerators(communityId: string): Promise<CommunityModerator[]>;
+  addCommunityModerator(communityId: string, username: string): Promise<CommunityModerator>;
+  removeCommunityModerator(communityId: string, userId: string): Promise<void>;
   setMembership(communityId: string, join: boolean): Promise<void>;
   getFeed(query: FeedQuery): Promise<Page<PostCard>>;
   getPost(id: string): Promise<PostCard>;
@@ -61,22 +71,20 @@ export interface GatherApi {
   updatePost(id: string, input: { title: string; body: string; scriptureReferences: ScriptureReference[]; imageUri?: string | null }): Promise<PostCard>;
   deletePost(id: string): Promise<void>;
   getComments(postId: string): Promise<Comment[]>;
-  createComment(input: {
-    postId: string;
-    parentCommentId?: string | null;
-    body: string;
-    scriptureReferences: ScriptureReference[];
-  }): Promise<Comment>;
+  createComment(input: { postId: string; parentCommentId?: string | null; body: string; scriptureReferences: ScriptureReference[] }): Promise<Comment>;
   deleteComment(id: string): Promise<void>;
-  votePost(postId: string, value: VoteValue): Promise<{ score: number; userVote: VoteValue }>;
-  voteComment(commentId: string, value: VoteValue): Promise<{ score: number; userVote: VoteValue }>;
+  votePost(postId: string, value: VoteValue): Promise<VoteResult>;
+  voteComment(commentId: string, value: VoteValue): Promise<VoteResult>;
   setSaved(postId: string, saved: boolean): Promise<void>;
+  setPrayed(postId: string, prayed: boolean): Promise<void>;
   search(query: string): Promise<{ communities: Community[]; posts: PostCard[] }>;
   listNotifications(): Promise<AppNotification[]>;
   markNotificationRead(id: string): Promise<void>;
   markAllNotificationsRead(): Promise<void>;
   getNotificationPreferences(): Promise<NotificationPreferences>;
   updateNotificationPreferences(preferences: NotificationPreferences): Promise<void>;
+  registerPushToken(token: string): Promise<void>;
+  clearPushToken(token: string): Promise<void>;
   report(input: { targetType: ReportTargetType; targetId: string; reason: ReportReason; details?: string }): Promise<void>;
   setBlocked(userId: string, blocked: boolean): Promise<void>;
   listBlocked(): Promise<Profile[]>;

@@ -4,15 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/theme/ThemeProvider';
 
-export function BottomSheet({
-  visible,
-  onClose,
-  children,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  children: ReactNode;
-}) {
+export function BottomSheet({ visible, onClose, children }: { visible: boolean; onClose: () => void; children: ReactNode }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   return (
@@ -24,8 +16,9 @@ export function BottomSheet({
             backgroundColor: theme.colors.surface,
             borderTopLeftRadius: theme.radius.lg,
             borderTopRightRadius: theme.radius.lg,
-            padding: theme.spacing.lg,
-            paddingBottom: insets.bottom + theme.spacing.lg,
+            paddingHorizontal: theme.spacing.lg,
+            paddingTop: theme.spacing.sm,
+            paddingBottom: Math.max(insets.bottom, theme.spacing.lg),
             maxHeight: '80%',
           }}
         >

@@ -22,7 +22,7 @@ export function UserAvatar({ name, path, size = 36 }: { name: string | null; pat
       {uri ? (
         <Image accessibilityIgnoresInvertColors source={{ uri }} style={{ width: size, height: size }} />
       ) : (
-        <Text style={[theme.type.label, { color: theme.colors.primary }]}>{initials(name)}</Text>
+        <Text style={[theme.type.label, { color: theme.colors.primary, fontSize: Math.max(12, Math.round(size * 0.36)), lineHeight: Math.max(16, Math.round(size * 0.46)) }]}>{initials(name)}</Text>
       )}
     </View>
   );

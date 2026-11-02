@@ -1,7 +1,7 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState, type ReactElement } from 'react';
-import { FlatList, RefreshControl, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, RefreshControl, ScrollView, Text, View } from 'react-native';
 
 import { PostCard } from '@/components/feed/PostCard';
 import { EmptyFeedState } from '@/components/ui/EmptyFeedState';
@@ -36,9 +36,21 @@ export function FeedList({
   if (feed.isLoading) return <LoadingSkeleton />;
   if (feed.isError) {
     return (
-      <View style={{ padding: theme.spacing.xl }}>
-        <Text style={[theme.type.body, { color: theme.colors.secondary }]}>The feed could not be loaded. Pull to try again.</Text>
-      </View>
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: theme.spacing.xl }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            tintColor={theme.colors.primary}
+            onRefresh={() => {
+              setRefreshing(true);
+              void feed.refetch().finally(() => setRefreshing(false));
+            }}
+          />
+        }
+      >
+        <Text style={[theme.type.body, { color: theme.colors.text }]}>The feed could not be loaded. Pull to try again.</Text>
+      </ScrollView>
     );
   }
 
@@ -47,19 +59,22 @@ export function FeedList({
       <FlatList
         style={{ flex: 1 }}
         ListEmptyComponent={<EmptyFeedState filter={filter} onExplore={() => router.push('/explore')} />}
-        ListHeaderComponent={
-          notice || header ? (
+        ListFooterComponent={
+          feed.isFetchingNextPage || (notice && posts.length > 0) ? (
             <View>
-              {notice ? (
-                <Text style={[theme.type.caption, { color: theme.colors.secondary, paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.sm }]}>
+              {feed.isFetchingNextPage ? (
+                <ActivityIndicator accessibilityLabel="Loading more posts" color={theme.colors.primary} style={{ paddingVertical: theme.spacing.lg }} />
+              ) : null}
+              {notice && posts.length > 0 && !feed.hasNextPage ? (
+                <Text style={[theme.type.caption, { color: theme.colors.muted, paddingHorizontal: theme.spacing.lg, paddingVertical: theme.spacing.lg }]}>
                   {notice}
                 </Text>
               ) : null}
-              {header}
             </View>
           ) : undefined
         }
-        contentContainerStyle={{ paddingBottom: 120, flexGrow: posts.length === 0 ? 1 : undefined }}
+        ListHeaderComponent={header ? <View>{header}</View> : undefined}
+        contentContainerStyle={{ paddingTop: theme.spacing.sm, paddingBottom: 120, flexGrow: posts.length === 0 ? 1 : undefined }}
         data={posts}
         keyExtractor={(item) => item.id}
         onEndReached={() => {
@@ -80,11 +95,12 @@ export function FeedList({
             onAuthor={() => item.authorUsername && router.push(`/user/${item.authorUsername}`)}
             onCommunity={() => router.push(`/community/${item.communitySlug}`)}
             onMenu={() => actions.openPostMenu(item)}
+            onSave={() => actions.savePost(item)}
             onPress={() => router.push(`/post/${item.id}`)}
             onReference={(reference) =>
               router.push({ pathname: '/scripture', params: { book: reference.book, chapter: String(reference.chapter), start: String(reference.verseStart), end: String(reference.verseEnd) } })
             }
-            onSave={() => actions.savePost(item)}
+            onPray={() => actions.prayPost(item)}
             onVote={(value) => actions.votePost(item, value)}
             post={item}
           />

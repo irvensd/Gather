@@ -1,4 +1,5 @@
 import { LIMITS } from '@/constants/limits';
+import { createSeed } from '@/lib/backend/demo/seed';
 import { buildCommentForest, flattenForDisplay, wouldExceedDepth } from '@/lib/domain/comments';
 import { hotScore, sortFeed } from '@/lib/domain/feed';
 import { allowsNotification, commentNotificationIntents, extractMentions, formatNotification } from '@/lib/domain/notifications';
@@ -7,9 +8,21 @@ import { canModerate, canVote, postVisibility } from '@/lib/domain/permissions';
 import { isRateLimited } from '@/lib/domain/rateLimit';
 import { communitySlug, validateCommunityName } from '@/lib/domain/community';
 import { validateUsername } from '@/lib/domain/username';
-import { applyVoteToScore, nextVote } from '@/lib/domain/votes';
+import { applyVoteCounts, applyVoteToScore, nextVote } from '@/lib/domain/votes';
 import { postSchema } from '@/lib/validation/schemas';
 import type { Comment } from '@/types';
+
+describe('sample conversations', () => {
+  it('includes prayer marks and a Sabbath School passage', () => {
+    const seed = createSeed();
+    expect(seed.communities.length).toBeGreaterThan(25);
+    expect(seed.posts.length).toBeGreaterThan(40);
+    expect(seed.comments.filter((comment) => comment.depth === 2).length).toBeGreaterThan(2);
+    expect(seed.prayers.length).toBeGreaterThan(3);
+    expect(seed.posts.some((post) => post.id === 'c2000000-0000-4000-8000-000000000011')).toBe(true);
+    expect(seed.comments.some((comment) => comment.postId === 'c2000000-0000-4000-8000-000000000018')).toBe(true);
+  });
+});
 
 describe('votes', () => {
   it('toggles a vote off and switches direction', () => {
@@ -18,6 +31,7 @@ describe('votes', () => {
     expect(nextVote(1, -1)).toBe(-1);
     expect(nextVote(-1, -1)).toBe(0);
     expect(applyVoteToScore(3, 1, -1)).toBe(1);
+    expect(applyVoteCounts(2, 0, 1, -1)).toEqual({ upvotes: 1, downvotes: 1 });
   });
 });
 
@@ -48,12 +62,27 @@ describe('feed sorting', () => {
 
   it('keeps a new post visible in popular order', () => {
     const sorted = sortFeed(posts, 'popular', now);
-    expect(sorted.map((post) => post.id)).toContain('new-quiet');
-    expect(hotScore(0, posts[1].createdAt, now)).toBeGreaterThan(0);
+    expect(sorted.map((post) => post.id)).toEqual(['new-quiet', 'old-popular']);
+    expect(hotScore(posts[1], now)).toBeGreaterThan(hotScore(posts[0], now));
   });
 
-  it('orders the new feed by time', () => {
+  it('lets replies and prayers lift a conversation above thumbs alone', () => {
+    const createdAt = '2026-10-31T10:00:00Z';
+    const ranked = sortFeed(
+      [
+        { id: 'thumbs', score: 4, commentCount: 0, prayedCount: 0, createdAt },
+        { id: 'talking', score: 0, commentCount: 3, prayedCount: 0, createdAt },
+        { id: 'prayer', score: 0, commentCount: 0, prayedCount: 5, createdAt },
+      ],
+      'popular',
+      now,
+    );
+    expect(ranked.map((post) => post.id)).toEqual(['talking', 'prayer', 'thumbs']);
+  });
+
+  it('orders the new feed and a followed feed by time', () => {
     expect(sortFeed(posts, 'new', now).map((post) => post.id)).toEqual(['new-quiet', 'old-popular']);
+    expect(sortFeed(posts, 'following', now).map((post) => post.id)).toEqual(['new-quiet', 'old-popular']);
   });
 });
 
@@ -133,6 +162,8 @@ function comment(id: string, parent: string | null, depth: number, status: Comme
     concealed: false,
     depth,
     score: 0,
+    upvotes: 0,
+    downvotes: 0,
     userVote: 0,
     createdAt: `2026-10-31T12:00:0${depth}Z`,
   };
