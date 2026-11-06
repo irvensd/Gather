@@ -51,18 +51,14 @@ export function PostCard({
   const author = post.authorDisplayName || post.authorUsername || 'Deleted user';
   const community = readableCommunityName(post.communityName);
   return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      testID="post-card"
-      style={({ pressed }) => ({
+    <View
+      style={{
         paddingHorizontal: theme.spacing.lg,
         paddingVertical: theme.spacing.md,
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.border,
-        backgroundColor: pressed ? theme.colors.highlight : 'transparent',
         gap: theme.spacing.sm,
-      })}
+      }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -92,20 +88,28 @@ export function PostCard({
           <IconButton color={theme.colors.muted} label="More actions" name="ellipsis-horizontal" onPress={onMenu} />
         </View>
       </View>
-      <Text style={[theme.type.postTitle, { color: theme.colors.text, fontSize: 20, lineHeight: 26, fontWeight: '700' }]}>{post.title}</Text>
-      {post.body ? (
-        <Text numberOfLines={2} style={[theme.type.body, { color: theme.colors.muted }]}>
-          {bodyPreview(post.body, 140)}
-        </Text>
-      ) : null}
-      {post.imageUri ? (
-        <Image
-          accessibilityLabel="Post photo"
-          contentFit="cover"
-          source={{ uri: post.imageUri }}
-          style={{ width: '100%', height: 180, borderRadius: theme.radius.md, backgroundColor: theme.colors.highlight }}
-        />
-      ) : null}
+      <Pressable
+        accessibilityLabel={post.title}
+        accessibilityRole="button"
+        onPress={onPress}
+        testID="post-card"
+        style={({ pressed }) => ({ gap: theme.spacing.sm, backgroundColor: pressed ? theme.colors.highlight : 'transparent' })}
+      >
+        <Text style={[theme.type.postTitle, { color: theme.colors.text, fontSize: 20, lineHeight: 26, fontWeight: '700' }]}>{post.title}</Text>
+        {post.body ? (
+          <Text numberOfLines={2} style={[theme.type.body, { color: theme.colors.muted }]}>
+            {bodyPreview(post.body, 140)}
+          </Text>
+        ) : null}
+        {post.imageUri ? (
+          <Image
+            accessibilityLabel="Post photo"
+            contentFit="cover"
+            source={{ uri: post.imageUri }}
+            style={{ width: '100%', height: 180, borderRadius: theme.radius.md, backgroundColor: theme.colors.highlight }}
+          />
+        ) : null}
+      </Pressable>
       <ScriptureReferenceList limit={1} onPress={onReference} references={post.scriptureReferences} />
       {post.type === 'prayer_request' && post.status === 'published' ? (
         <PrayedButton count={post.prayedCount ?? 0} onPress={onPray} prayed={!!post.userPrayed} />
@@ -133,6 +137,6 @@ export function PostCard({
           </View>
         )}
       </View>
-    </Pressable>
+    </View>
   );
 }

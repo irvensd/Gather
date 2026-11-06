@@ -71,6 +71,7 @@ export function PushRegistration() {
   const { session, profile } = useAuth();
 
   useEffect(() => {
+    if (Platform.OS === 'web') return;
     const received = addNotificationReceivedListener(() => {
       void queryClient.invalidateQueries({ queryKey: ['notifications'] });
     });

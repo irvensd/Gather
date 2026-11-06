@@ -149,36 +149,46 @@ export default function ExploreScreen() {
   );
 
   const renderCommunity = (community: Community) => (
-    <Pressable
+    <View
       key={community.id}
-      accessibilityHint="Opens the community"
-      accessibilityLabel={`${readableCommunityName(community.name)}. ${community.description}`}
-      accessibilityRole="button"
-      onPress={() => router.push(`/community/${community.slug}`)}
-      style={({ pressed }) => ({
+      style={{
         flexDirection: 'row',
         alignItems: 'center',
-        gap: theme.spacing.md,
-        paddingHorizontal: theme.spacing.lg,
-        paddingVertical: theme.spacing.md,
+        paddingRight: theme.spacing.lg,
         minHeight: 72,
-        backgroundColor: pressed ? theme.colors.highlight : 'transparent',
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.border,
-      })}
+      }}
     >
-      <CommunityAvatar icon={community.icon} color={community.color} size={40} />
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text numberOfLines={1} style={[theme.type.body, { color: theme.colors.text, fontWeight: '600' }]}>
-          {readableCommunityName(community.name)}
-        </Text>
-        <Text numberOfLines={1} style={[theme.type.body, { color: theme.colors.muted }]}>
-          {community.description}
-        </Text>
-        <Text numberOfLines={1} style={[theme.type.caption, { color: theme.colors.muted }]}>
-          {memberLabel(community.memberCount)}
-        </Text>
-      </View>
+      <Pressable
+        accessibilityHint="Opens the community"
+        accessibilityLabel={`${readableCommunityName(community.name)}. ${community.description}`}
+        accessibilityRole="button"
+        onPress={() => router.push(`/community/${community.slug}`)}
+        style={({ pressed }) => ({
+          flex: 1,
+          minHeight: 72,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: theme.spacing.md,
+          paddingHorizontal: theme.spacing.lg,
+          paddingVertical: theme.spacing.md,
+          backgroundColor: pressed ? theme.colors.highlight : 'transparent',
+        })}
+      >
+        <CommunityAvatar icon={community.icon} color={community.color} size={40} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text numberOfLines={1} style={[theme.type.body, { color: theme.colors.text, fontWeight: '600' }]}>
+            {readableCommunityName(community.name)}
+          </Text>
+          <Text numberOfLines={1} style={[theme.type.body, { color: theme.colors.muted }]}>
+            {community.description}
+          </Text>
+          <Text numberOfLines={1} style={[theme.type.caption, { color: theme.colors.muted }]}>
+            {memberLabel(community.memberCount)}
+          </Text>
+        </View>
+      </Pressable>
       {!session ? null : community.joined ? (
         <Text
           style={[
@@ -212,7 +222,7 @@ export default function ExploreScreen() {
           <Text style={[theme.type.body, { color: theme.colors.onPrimary, fontWeight: '600' }]}>Join</Text>
         </Pressable>
       )}
-    </Pressable>
+    </View>
   );
 
   return (
