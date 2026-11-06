@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import { useState, type ReactElement } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, ScrollView, Text, View } from 'react-native';
 
@@ -24,7 +24,8 @@ export function FeedList({
 }) {
   const theme = useTheme();
   const [refreshing, setRefreshing] = useState(false);
-  const actions = useContentActions(communityId ? `/community/${communityId}` : '/');
+  const pathname = usePathname();
+  const actions = useContentActions(pathname);
   const feed = useInfiniteQuery({
     queryKey: ['feed', filter, communityId ?? null],
     initialPageParam: 0,

@@ -86,8 +86,7 @@ export default function SignInScreen() {
           setError(null);
           try {
             await (await getApi()).signIn(values.email, values.password);
-            if (router.canGoBack()) router.back();
-            else router.replace('/');
+            // The auth gate resumes the pending action once the profile has loaded.
           } catch (caught) {
             setError(caught instanceof AppError ? caught.message : 'Could not sign in.');
             setLoading(false);

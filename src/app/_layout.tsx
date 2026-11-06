@@ -1,7 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { DarkTheme, DefaultTheme, router, Stack, ThemeProvider, useSegments, type Href } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useNetInfo } from '@react-native-community/netinfo';
@@ -11,6 +11,7 @@ import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
 import { PushRegistration } from '@/features/notifications/push';
 import { resumePendingAction } from '@/features/posts/actions';
 import { queryClient } from '@/lib/queryClient';
+import { useToast } from '@/store/toast';
 import { usePending } from '@/store/pending';
 import { usePreferences, usePreferencesHydrated } from '@/store/preferences';
 import { GatherThemeProvider, useTheme } from '@/theme/ThemeProvider';
@@ -19,7 +20,8 @@ SplashScreen.preventAutoHideAsync();
 
 function Gate() {
   const { ready, session, profile } = useAuth();
-  const segments = useSegments();
+  const segments: readonly string[] = useSegments();
+  const previousRoot = useRef<string | undefined>(undefined);
   const theme = useTheme();
   const net = useNetInfo();
   const preferencesReady = usePreferencesHydrated();
@@ -33,6 +35,8 @@ function Gate() {
   useEffect(() => {
     if (!ready || !preferencesReady) return;
     const root = segments[0];
+    if (!session && previousRoot.current === '(auth)' && root !== '(auth)') usePending.getState().clearPending();
+    previousRoot.current = root;
     const onWelcome = root === '(onboarding)' && segments[1] === 'welcome';
     if (session && !profile) return;
     if (session && profile && profile.onboardingStep !== 'done') {
@@ -46,9 +50,12 @@ function Gate() {
       // creating a community or a post because some earlier tap saved that screen.
       const finishedOnboarding = root === '(onboarding)';
       const destination = (finishedOnboarding ? '/' : (pending.returnTo ?? '/')) as Href;
-      if (finishedOnboarding) pending.clearPending();
-      router.replace(destination);
-      if (!finishedOnboarding) void resumePendingAction();
+      if (finishedOnboarding || !pending.action) pending.clearPending();
+      if (!finishedOnboarding && !pending.returnTo && router.canGoBack()) router.back();
+      else router.dismissTo(destination);
+      if (!finishedOnboarding && pending.action) {
+        void resumePendingAction().catch(() => useToast.getState().show('Signed in, but your action could not be completed. Please try again.'));
+      }
       return;
     }
     if (!session && !hasSeenWelcome && !onWelcome) router.replace('/(onboarding)/welcome');

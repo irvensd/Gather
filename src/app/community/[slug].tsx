@@ -8,6 +8,8 @@ import { WeeklyPassage } from '@/components/feed/WeeklyPassage';
 import { readableCommunityName } from '@/constants/communities';
 import { membershipNotice, startedByLabel } from '@/lib/communityBrowse';
 import { FeedList } from '@/features/feed/FeedList';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { AppError } from '@/lib/backend/errors';
 import { IconButton } from '@/components/ui/IconButton';
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
@@ -64,10 +66,19 @@ export default function CommunityScreen() {
     else router.navigate('/explore');
   }
   if (!community.data) {
+    const missing = community.error instanceof AppError && community.error.code === 'not_found';
     return (
       <ScreenContainer>
         <IconButton label="Back" name="chevron-back" onPress={goBack} />
-        {community.isLoading ? <LoadingSkeleton /> : null}
+        {community.isPending && !community.isPaused ? <LoadingSkeleton /> : (
+          <EmptyState
+            title={missing ? 'Community unavailable' : 'Couldn’t load this community'}
+            message={missing ? 'This community may have moved or closed.' : 'Check your connection and try again.'}
+            icon={missing ? 'people-outline' : 'cloud-offline-outline'}
+            actionLabel={missing ? 'Explore communities' : 'Try again'}
+            onAction={missing ? () => router.navigate('/explore') : () => void community.refetch()}
+          />
+        )}
       </ScreenContainer>
     );
   }
