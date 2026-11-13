@@ -50,6 +50,7 @@ export function PostCard({
   const isOwn = !!session && post.authorId === session.userId;
   const author = post.authorDisplayName || post.authorUsername || 'Deleted user';
   const community = readableCommunityName(post.communityName);
+  const bylineStyle = [theme.type.caption, { color: theme.colors.muted }];
   return (
     <View
       style={{
@@ -60,33 +61,25 @@ export function PostCard({
         gap: theme.spacing.sm,
       }}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Pressable accessibilityLabel={community} hitSlop={6} onPress={onCommunity} style={{ flexShrink: 0, maxWidth: '60%' }}>
-            <Text numberOfLines={1} style={[theme.type.body, { color: theme.colors.primary, fontWeight: '600' }]}>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: theme.spacing.sm }}>
+        <View style={{ flex: 1, gap: theme.spacing.xs }}>
+          <Pressable accessibilityLabel={community} accessibilityRole="button" hitSlop={4} onPress={onCommunity} style={{ alignSelf: 'flex-start' }}>
+            <Text style={[theme.type.body, { color: theme.colors.primary, fontWeight: '600' }]}>
               {community}
             </Text>
           </Pressable>
-          <Text style={[theme.type.body, { color: theme.colors.muted }]}>·</Text>
-          {showAuthor ? (
-            <Pressable hitSlop={6} onPress={onAuthor} style={{ flexShrink: 1 }}>
-              <Text numberOfLines={1} style={[theme.type.body, { color: theme.colors.muted }]}>
-                {postByline(post.type, author)}
-              </Text>
-            </Pressable>
-          ) : (
-            <Text numberOfLines={1} style={[theme.type.body, { color: theme.colors.muted, flexShrink: 1 }]}>
-              {postTypeLabel(post.type)}
-            </Text>
-          )}
-          <Text style={[theme.type.body, { color: theme.colors.muted }]}>·</Text>
-          <Text numberOfLines={1} style={[theme.type.body, { color: theme.colors.muted, flexShrink: 0 }]}>
-            {formatFriendlyTime(post.createdAt)}
-          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: theme.spacing.xs }}>
+            {showAuthor ? (
+              <Pressable accessibilityRole="button" onPress={onAuthor} style={{ flexShrink: 1 }}>
+                <Text style={bylineStyle}>{postByline(post.type, author)}</Text>
+              </Pressable>
+            ) : (
+              <Text style={[bylineStyle, { flexShrink: 1 }]}>{postTypeLabel(post.type)}</Text>
+            )}
+            <Text style={[bylineStyle, { flexShrink: 1 }]}>· {formatFriendlyTime(post.createdAt)}</Text>
+          </View>
         </View>
-        <View style={{ marginVertical: -10, marginRight: -10 }}>
-          <IconButton color={theme.colors.muted} label="More actions" name="ellipsis-horizontal" onPress={onMenu} />
-        </View>
+        <IconButton color={theme.colors.muted} label="More actions" name="ellipsis-horizontal" onPress={onMenu} />
       </View>
       <Pressable
         accessibilityLabel={post.title}
