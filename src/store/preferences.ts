@@ -7,18 +7,14 @@ export type Appearance = 'system' | 'light' | 'dark';
 
 interface PreferenceState {
   appearance: Appearance;
-  hasSeenWelcome: boolean;
   setAppearance: (appearance: Appearance) => void;
-  setHasSeenWelcome: (seen: boolean) => void;
 }
 
 export const usePreferences = create<PreferenceState>()(
   persist(
     (set) => ({
       appearance: 'system',
-      hasSeenWelcome: false,
       setAppearance: (appearance) => set({ appearance }),
-      setHasSeenWelcome: (hasSeenWelcome) => set({ hasSeenWelcome }),
     }),
     {
       name: 'gather.preferences',

@@ -1,13 +1,16 @@
 appId: com.gather.community
 ---
-- launchApp
-- tapOn:
-    id: welcome-browse
+- launchApp:
+    clearState: true
 - assertVisible: Gather
-- tapOn:
+- assertVisible:
     id: post-card
 - tapOn:
-    id: comment-input
-- tapOn:
-    id: comment-submit
-- assertVisible: Create an account
+    id: post-card
+    index: 0
+- assertVisible: Back
+- tapOn: Save
+- assertVisible:
+    id: sign-in-submit
+- tapOn: Keep browsing
+- assertVisible: Back

@@ -13,19 +13,18 @@ import { resumePendingAction } from '@/features/posts/actions';
 import { queryClient } from '@/lib/queryClient';
 import { useToast } from '@/store/toast';
 import { usePending } from '@/store/pending';
-import { usePreferences, usePreferencesHydrated } from '@/store/preferences';
+import { usePreferencesHydrated } from '@/store/preferences';
 import { GatherThemeProvider, useTheme } from '@/theme/ThemeProvider';
 
 SplashScreen.preventAutoHideAsync();
 
 function Gate() {
   const { ready, session, profile } = useAuth();
-  const segments: readonly string[] = useSegments();
+  const [root] = useSegments();
   const previousRoot = useRef<string | undefined>(undefined);
   const theme = useTheme();
   const net = useNetInfo();
   const preferencesReady = usePreferencesHydrated();
-  const hasSeenWelcome = usePreferences((state) => state.hasSeenWelcome);
 
   useEffect(() => {
     if (!ready || !preferencesReady) return;
@@ -34,14 +33,12 @@ function Gate() {
 
   useEffect(() => {
     if (!ready || !preferencesReady) return;
-    const root = segments[0];
     if (!session && previousRoot.current === '(auth)' && root !== '(auth)') usePending.getState().clearPending();
     previousRoot.current = root;
-    const onWelcome = root === '(onboarding)' && segments[1] === 'welcome';
     if (session && !profile) return;
     if (session && profile && profile.onboardingStep !== 'done') {
       const path = profile.onboardingStep === 'interests' ? '/(onboarding)/interests' : '/(onboarding)/username';
-      if (onWelcome || root !== '(onboarding)') router.replace(path);
+      if (root !== '(onboarding)') router.replace(path);
       return;
     }
     if (session && profile?.onboardingStep === 'done' && (root === '(auth)' || root === '(onboarding)')) {
@@ -58,8 +55,7 @@ function Gate() {
       }
       return;
     }
-    if (!session && !hasSeenWelcome && !onWelcome) router.replace('/(onboarding)/welcome');
-  }, [ready, preferencesReady, hasSeenWelcome, session, profile, segments]);
+  }, [ready, preferencesReady, session, profile, root]);
 
   if (!ready) return null;
   if (net.isConnected === false) {
