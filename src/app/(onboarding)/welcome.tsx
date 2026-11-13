@@ -22,7 +22,8 @@ export default function WelcomeScreen() {
         <Text style={[theme.type.body, { color: theme.colors.secondary }]}>
           A place for Bible questions, ordinary life, and the people who understand both. You can read every conversation without an account.
         </Text>
-        <PrimaryButton
+        <PrimaryButton label="Browse first" onPress={browse} testID="welcome-browse" />
+        <SecondaryButton
           label="Create an account"
           onPress={() => {
             setSeen(true);
@@ -30,15 +31,15 @@ export default function WelcomeScreen() {
           }}
           testID="welcome-create"
         />
-        <SecondaryButton
-          label="I have an account"
+        <Pressable
+          accessibilityRole="button"
           onPress={() => {
             setSeen(true);
             router.push('/(auth)/sign-in');
           }}
-        />
-        <Pressable accessibilityRole="button" onPress={browse} style={{ minHeight: 44, justifyContent: 'center' }} testID="welcome-browse">
-          <Text style={[theme.type.body, { color: theme.colors.primary, textAlign: 'center' }]}>Browse first</Text>
+          style={{ minHeight: 44, justifyContent: 'center' }}
+        >
+          <Text style={[theme.type.body, { color: theme.colors.primary, textAlign: 'center' }]}>Sign in</Text>
         </Pressable>
       </View>
     </ScreenContainer>
