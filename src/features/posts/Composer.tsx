@@ -17,6 +17,7 @@ import { SearchField } from '@/components/ui/SearchField';
 import { readableCommunityName } from '@/constants/communities';
 import { PRAYER_POST_NOTICE, PUBLIC_POST_NOTICE } from '@/constants/guidelines';
 import { LIMITS } from '@/constants/limits';
+import { composerPlaceholders } from '@/constants/composerPlaceholders';
 import { POST_TYPES } from '@/constants/postTypes';
 import { getApi } from '@/lib/backend';
 import { AppError } from '@/lib/backend/errors';
@@ -92,6 +93,7 @@ export function Composer({
   const values = useWatch({ control: form.control }) as PostValues;
   const selected = communities.data?.find((community) => community.id === values.communityId);
   const typeMeta = POST_TYPES.find((item) => item.type === values.type);
+  const placeholders = composerPlaceholders(selected?.slug, values.type);
   const empty = isEmptyDraft({ ...values, imageUri });
   const changed = editing
     ? !!existing.data &&
@@ -243,8 +245,7 @@ export function Composer({
     paddingHorizontal: theme.spacing.md,
     color: theme.colors.text,
   };
-  const errorText = (message?: string) =>
-    message ? <Text style={[theme.type.body, { color: theme.colors.danger }]}>{message}</Text> : null;
+  const errorText = (message?: string) => (message ? <Text style={[theme.type.body, { color: theme.colors.danger }]}>{message}</Text> : null);
   const toolButton = (label: string, icon: keyof typeof Ionicons.glyphMap, onPress: () => void, disabled = false) => (
     <Pressable
       accessibilityRole="button"
@@ -412,7 +413,7 @@ export function Composer({
                 maxLength={LIMITS.titleMax}
                 multiline
                 onChangeText={field.onChange}
-                placeholder={typeMeta?.example ?? 'Title'}
+                placeholder={placeholders.title}
                 placeholderTextColor={theme.colors.secondary}
                 style={[
                   theme.type.title,
@@ -426,7 +427,9 @@ export function Composer({
               />
               {errorText(fieldState.error?.message)}
               {field.value.length >= TITLE_COUNT_FROM ? (
-                <Text style={[theme.type.caption, { color: theme.colors.muted, textAlign: 'right' }]}>{field.value.length}/{LIMITS.titleMax}</Text>
+                <Text style={[theme.type.caption, { color: theme.colors.muted, textAlign: 'right' }]}>
+                  {field.value.length}/{LIMITS.titleMax}
+                </Text>
               ) : null}
             </View>
           )}
@@ -442,7 +445,7 @@ export function Composer({
                 maxLength={LIMITS.bodyMax}
                 multiline
                 onChangeText={field.onChange}
-                placeholder="Say more. Add the context people need to answer well."
+                placeholder={placeholders.body}
                 placeholderTextColor={theme.colors.secondary}
                 style={[
                   theme.type.body,
@@ -455,7 +458,9 @@ export function Composer({
               />
               {errorText(fieldState.error?.message)}
               {field.value.length >= BODY_COUNT_FROM ? (
-                <Text style={[theme.type.caption, { color: theme.colors.muted, textAlign: 'right' }]}>{field.value.length}/{LIMITS.bodyMax}</Text>
+                <Text style={[theme.type.caption, { color: theme.colors.muted, textAlign: 'right' }]}>
+                  {field.value.length}/{LIMITS.bodyMax}
+                </Text>
               ) : null}
             </View>
           )}
@@ -463,7 +468,12 @@ export function Composer({
 
         {imageUri ? (
           <View>
-            <Image accessibilityLabel="Attached photo" contentFit="cover" source={{ uri: imageUri }} style={{ width: '100%', height: 220, borderRadius: theme.radius.md }} />
+            <Image
+              accessibilityLabel="Attached photo"
+              contentFit="cover"
+              source={{ uri: imageUri }}
+              style={{ width: '100%', height: 220, borderRadius: theme.radius.md }}
+            />
             <Pressable
               accessibilityLabel="Remove photo"
               accessibilityRole="button"
@@ -490,7 +500,13 @@ export function Composer({
             {values.scriptureReferences.map((reference) => (
               <View
                 key={reference.raw}
-                style={{ flexDirection: 'row', alignItems: 'center', paddingLeft: 14, borderRadius: theme.radius.pill, backgroundColor: theme.colors.highlight }}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingLeft: 14,
+                  borderRadius: theme.radius.pill,
+                  backgroundColor: theme.colors.highlight,
+                }}
               >
                 <Ionicons color={theme.colors.primary} name="book-outline" size={18} />
                 <Text style={[theme.type.body, { color: theme.colors.text, fontWeight: '600', marginLeft: 6 }]}>{reference.raw}</Text>

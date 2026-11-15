@@ -61,7 +61,7 @@ export function CommentCard({
       )}
       {!withheld ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <VoteControl downvotes={comment.downvotes ?? 0} onVote={onVote} upvotes={comment.upvotes ?? 0} value={comment.userVote} />
+          <VoteControl onVote={onVote} upvotes={comment.upvotes ?? 0} value={comment.userVote} />
           {onReply ? (
             <Pressable accessibilityRole="button" onPress={onReply}>
               <Text style={[theme.type.caption, { color: theme.colors.primary, fontWeight: '600' }]}>Reply</Text>

@@ -113,14 +113,7 @@ export function Discussion({ postId, focusCommentId }: { postId: string; focusCo
               <PrayedButton count={item.prayedCount ?? 0} onPress={() => actions.prayPost(item)} prayed={!!item.userPrayed} />
             ) : null}
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <VoteControl
-                disabled={locked}
-                downvotes={item.downvotes ?? 0}
-                labeled
-                onVote={(value) => actions.votePost(item, value)}
-                upvotes={item.upvotes ?? 0}
-                value={item.userVote}
-              />
+              <VoteControl disabled={locked} labeled onVote={(value) => actions.votePost(item, value)} upvotes={item.upvotes ?? 0} value={item.userVote} />
               {session && item.authorId === session.userId ? null : (
                 <View style={{ marginLeft: 'auto' }}>
                   <SaveButton onPress={() => actions.savePost(item)} saved={item.saved} />

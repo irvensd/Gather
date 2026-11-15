@@ -48,7 +48,8 @@
           "photosPermission": "Gather uses a photo you choose for your profile avatar.",
           "cameraPermission": "Gather uses the camera only if you take a profile photo."
         }
-      ]
+      ],
+      "expo-iap"
     ],
     "experiments": {
       "typedRoutes": true,

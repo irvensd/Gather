@@ -108,13 +108,7 @@ export function PostCard({
         <PrayedButton count={post.prayedCount ?? 0} onPress={onPray} prayed={!!post.userPrayed} />
       ) : null}
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <VoteControl
-          disabled={post.isLocked || post.status !== 'published'}
-          downvotes={post.downvotes ?? 0}
-          onVote={onVote}
-          upvotes={post.upvotes ?? 0}
-          value={post.userVote}
-        />
+        <VoteControl disabled={post.isLocked || post.status !== 'published'} onVote={onVote} upvotes={post.upvotes ?? 0} value={post.userVote} />
         <Pressable
           accessibilityLabel={repliesLabel(post.commentCount)}
           accessibilityRole="button"

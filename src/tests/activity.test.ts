@@ -41,11 +41,22 @@ describe('activity rules', () => {
   });
 
   it('describes the new kinds plainly', () => {
-    expect(formatNotification({ type: 'prayer_milestone', actorUsername: null, postType: 'prayer_request', count: 1 })).toBe('Someone prayed for your prayer request.');
-    expect(formatNotification({ type: 'prayer_milestone', actorUsername: null, postType: 'prayer_request', count: 5 })).toBe('5 people prayed for your prayer request.');
+    expect(formatNotification({ type: 'prayer_milestone', actorUsername: null, postType: 'prayer_request', count: 1 })).toBe(
+      'Someone prayed for your prayer request.',
+    );
+    expect(formatNotification({ type: 'prayer_milestone', actorUsername: null, postType: 'prayer_request', count: 5 })).toBe(
+      '5 people prayed for your prayer request.',
+    );
     expect(formatNotification({ type: 'vote_milestone', actorUsername: null, postType: 'question', count: 10 })).toBe('Your question reached 10 thumbs up.');
-    expect(formatNotification({ type: 'content_removed', actorUsername: null, postType: 'question', aboutComment: true })).toBe('A moderator removed your comment.');
-    expect(formatNotification({ type: 'post_reply', actorUsername: 'mira', postType: 'testimony', otherActors: 2 })).toBe('@mira and 2 others replied to your testimony.');
+    expect(formatNotification({ type: 'content_removed', actorUsername: null, postType: 'question', aboutComment: true })).toBe(
+      'A moderator removed your comment.',
+    );
+    expect(formatNotification({ type: 'new_report', actorUsername: 'mira', postType: 'question', communityName: 'Bible Questions' })).toBe(
+      'New report in Bible Questions.',
+    );
+    expect(formatNotification({ type: 'post_reply', actorUsername: 'mira', postType: 'testimony', otherActors: 2 })).toBe(
+      '@mira and 2 others replied to your testimony.',
+    );
   });
 
   it('lets people mute encouragement but never moderator notices', () => {
@@ -92,9 +103,16 @@ describe('activity in the demo', () => {
 
   it('tells moderators about reports, and authors about removals and thumbs up', async () => {
     const api = createDemoApi();
+    const seed = createSeed();
+    const reviews = (post: { communityId: string; authorUsername: string | null }) => {
+      const author = seed.users.find((person) => person.username === post.authorUsername);
+      if (!author) return true;
+      if (seed.admins.includes(author.id)) return true;
+      return seed.moderators.some((item) => item.userId === author.id && item.communityId === post.communityId);
+    };
     await api.signIn('mira@demo.gather', 'gather-demo');
     const feed = await api.getFeed({ filter: 'new', offset: 0, limit: 50 });
-    const target = feed.items.find((post) => post.authorUsername !== 'mira_lane' && post.authorUsername !== 'rowan_hale');
+    const target = feed.items.find((post) => post.authorUsername && !reviews(post));
     expect(target).toBeDefined();
     await api.report({ targetType: 'post', targetId: target!.id, reason: 'spam_or_scam' });
     await api.signOut();
@@ -104,7 +122,15 @@ describe('activity in the demo', () => {
     const report = rowanInbox.find((item) => item.type === 'new_report' && item.postId === target!.id);
     expect(report?.snippet).toBe('Spam or scam');
     expect(report?.communityName).toBe(target!.communityName);
-    await api.moderate({ communityId: target!.communityId, targetType: 'post', targetId: target!.id, action: 'remove', reason: 'Selling something unrelated.' });
+    expect(report?.actorId).toBeNull();
+    expect(report?.actorUsername).toBeNull();
+    await api.moderate({
+      communityId: target!.communityId,
+      targetType: 'post',
+      targetId: target!.id,
+      action: 'remove',
+      reason: 'Selling something unrelated.',
+    });
     await api.signOut();
 
     const author = target!.authorUsername;
@@ -116,6 +142,7 @@ describe('activity in the demo', () => {
     };
     await api.signIn(people[author!]!, 'gather-demo');
     const authorInbox = await api.listNotifications();
+    expect(authorInbox.some((item) => item.type === 'new_report')).toBe(false);
     const removed = authorInbox.find((item) => item.type === 'content_removed' && item.postId === target!.id);
     expect(removed?.snippet).toBe('Selling something unrelated.');
     expect(removed?.postAvailable).toBe(false);

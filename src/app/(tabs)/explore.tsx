@@ -148,82 +148,87 @@ export default function ExploreScreen() {
     </Pressable>
   );
 
-  const renderCommunity = (community: Community) => (
-    <View
-      key={community.id}
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingRight: theme.spacing.lg,
-        minHeight: 72,
-        borderBottomWidth: 1,
-        borderBottomColor: theme.colors.border,
-      }}
-    >
-      <Pressable
-        accessibilityHint="Opens the community"
-        accessibilityLabel={`${readableCommunityName(community.name)}. ${community.description}`}
-        accessibilityRole="button"
-        onPress={() => router.push(`/community/${community.slug}`)}
-        style={({ pressed }) => ({
-          flex: 1,
-          minHeight: 72,
+  const renderCommunity = (community: Community) => {
+    const members = memberLabel(community.memberCount);
+    return (
+      <View
+        key={community.id}
+        style={{
           flexDirection: 'row',
           alignItems: 'center',
-          gap: theme.spacing.md,
-          paddingHorizontal: theme.spacing.lg,
-          paddingVertical: theme.spacing.md,
-          backgroundColor: pressed ? theme.colors.highlight : 'transparent',
-        })}
+          paddingRight: theme.spacing.lg,
+          minHeight: 72,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.colors.border,
+        }}
       >
-        <CommunityAvatar icon={community.icon} color={community.color} size={40} />
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text numberOfLines={1} style={[theme.type.body, { color: theme.colors.text, fontWeight: '600' }]}>
-            {readableCommunityName(community.name)}
-          </Text>
-          <Text numberOfLines={1} style={[theme.type.body, { color: theme.colors.muted }]}>
-            {community.description}
-          </Text>
-          <Text numberOfLines={1} style={[theme.type.caption, { color: theme.colors.muted }]}>
-            {memberLabel(community.memberCount)}
-          </Text>
-        </View>
-      </Pressable>
-      {!session ? null : community.joined ? (
-        <Text
-          style={[
-            theme.type.body,
-            {
-              color: theme.colors.primary,
-              fontWeight: '600',
-              minWidth: 64,
-              textAlign: 'center',
-            },
-          ]}
-        >
-          Joined
-        </Text>
-      ) : (
         <Pressable
-          accessibilityLabel={`Join ${readableCommunityName(community.name)}`}
+          accessibilityHint="Opens the community"
+          accessibilityLabel={`${readableCommunityName(community.name)}. ${community.description}`}
           accessibilityRole="button"
-          onPress={() => joinCommunity(community)}
+          onPress={() => router.push(`/community/${community.slug}`)}
           style={({ pressed }) => ({
-            minHeight: 44,
-            minWidth: 64,
-            paddingHorizontal: 16,
-            borderRadius: theme.radius.pill,
+            flex: 1,
+            minHeight: 72,
+            flexDirection: 'row',
             alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: theme.colors.primary,
-            opacity: pressed ? 0.72 : 1,
+            gap: theme.spacing.md,
+            paddingHorizontal: theme.spacing.lg,
+            paddingVertical: theme.spacing.md,
+            backgroundColor: pressed ? theme.colors.highlight : 'transparent',
           })}
         >
-          <Text style={[theme.type.body, { color: theme.colors.onPrimary, fontWeight: '600' }]}>Join</Text>
+          <CommunityAvatar icon={community.icon} color={community.color} size={40} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text numberOfLines={1} style={[theme.type.body, { color: theme.colors.text, fontWeight: '600' }]}>
+              {readableCommunityName(community.name)}
+            </Text>
+            <Text numberOfLines={1} style={[theme.type.body, { color: theme.colors.muted }]}>
+              {community.description}
+            </Text>
+            {members ? (
+              <Text numberOfLines={1} style={[theme.type.caption, { color: theme.colors.muted }]}>
+                {members}
+              </Text>
+            ) : null}
+          </View>
         </Pressable>
-      )}
-    </View>
-  );
+        {!session ? null : community.joined ? (
+          <Text
+            style={[
+              theme.type.body,
+              {
+                color: theme.colors.primary,
+                fontWeight: '600',
+                minWidth: 64,
+                textAlign: 'center',
+              },
+            ]}
+          >
+            Joined
+          </Text>
+        ) : (
+          <Pressable
+            accessibilityLabel={`Join ${readableCommunityName(community.name)}`}
+            accessibilityRole="button"
+            onPress={() => joinCommunity(community)}
+            style={({ pressed }) => ({
+              minHeight: 44,
+              minWidth: 64,
+              paddingHorizontal: 16,
+              borderRadius: theme.radius.pill,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: theme.colors.primary,
+              opacity: pressed ? 0.72 : 1,
+            })}
+          >
+            <Text style={[theme.type.body, { color: theme.colors.onPrimary, fontWeight: '600' }]}>Join</Text>
+          </Pressable>
+        )}
+      </View>
+    );
+  };
 
   return (
     <ScreenContainer>

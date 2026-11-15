@@ -16,12 +16,18 @@ import { usePending } from '@/store/pending';
 import { usePreferencesHydrated } from '@/store/preferences';
 import { GatherThemeProvider, useTheme } from '@/theme/ThemeProvider';
 
+/** Home stays under sign-in, so opening the app or leaving sign-in always has the feed behind it. */
+export const unstable_settings = {
+  anchor: '(tabs)',
+};
+
 SplashScreen.preventAutoHideAsync();
 
 function Gate() {
   const { ready, session, profile } = useAuth();
   const [root] = useSegments();
   const previousRoot = useRef<string | undefined>(undefined);
+  const launchChecked = useRef(false);
   const theme = useTheme();
   const net = useNetInfo();
   const preferencesReady = usePreferencesHydrated();
@@ -32,7 +38,15 @@ function Gate() {
   }, [ready, preferencesReady]);
 
   useEffect(() => {
-    if (!ready || !preferencesReady) return;
+    if (!ready || !preferencesReady || !root) return;
+    if (!launchChecked.current) {
+      launchChecked.current = true;
+      // A reload can restore sign-in as the only screen. A guest did not ask to sign in, so start on Home.
+      if (!session && root === '(auth)' && !usePending.getState().returnTo) {
+        router.replace('/');
+        return;
+      }
+    }
     if (!session && previousRoot.current === '(auth)' && root !== '(auth)') usePending.getState().clearPending();
     previousRoot.current = root;
     if (session && !profile) return;
@@ -48,7 +62,7 @@ function Gate() {
       const finishedOnboarding = root === '(onboarding)';
       const destination = (finishedOnboarding ? '/' : (pending.returnTo ?? '/')) as Href;
       if (finishedOnboarding || !pending.action) pending.clearPending();
-      if (!finishedOnboarding && !pending.returnTo && router.canGoBack()) router.back();
+      if (!finishedOnboarding && !pending.returnTo && router.canDismiss()) router.back();
       else router.dismissTo(destination);
       if (!finishedOnboarding && pending.action) {
         void resumePendingAction().catch(() => useToast.getState().show('Signed in, but your action could not be completed. Please try again.'));
@@ -110,6 +124,7 @@ function Navigation() {
           <Stack.Screen name="settings/notifications" />
           <Stack.Screen name="settings/blocked" />
           <Stack.Screen name="settings/guidelines" />
+          <Stack.Screen name="settings/support" />
           <Stack.Screen name="settings/delete-account" />
           <Stack.Screen name="moderation" />
           <Stack.Screen name="reset-password" />

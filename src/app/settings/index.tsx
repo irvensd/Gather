@@ -1,12 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { Pressable, Text, View } from 'react-native';
 
 import { IconButton } from '@/components/ui/IconButton';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
+import { COMMUNITY_GUIDELINES_URL, PRIVACY_POLICY_URL } from '@/constants/publicPages';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { getApi } from '@/lib/backend';
 import { usePending } from '@/store/pending';
+import { useToast } from '@/store/toast';
 import { useTheme } from '@/theme/ThemeProvider';
 
 const ACCOUNT_LINKS = [
@@ -15,18 +18,24 @@ const ACCOUNT_LINKS = [
   ['Joined communities', '/settings/communities'],
   ['Notifications', '/settings/notifications'],
   ['Blocked accounts', '/settings/blocked'],
-  ['Delete account', '/settings/delete-account'],
 ] as const;
+
+const DELETE_ACCOUNT = ['Delete account', '/settings/delete-account'] as const;
 
 const OPEN_LINKS = [
   ['Appearance', '/settings/appearance'],
-  ['Privacy and guidelines', '/settings/guidelines'],
+  ['Support Gather', '/settings/support'],
+] as const;
+
+const WEB_LINKS = [
+  ['Privacy Policy', PRIVACY_POLICY_URL],
+  ['Community Guidelines', COMMUNITY_GUIDELINES_URL],
 ] as const;
 
 export default function SettingsScreen() {
   const theme = useTheme();
   const { session } = useAuth();
-  const row = (label: string, href: (typeof ACCOUNT_LINKS)[number][1] | (typeof OPEN_LINKS)[number][1]) => (
+  const row = (label: string, href: (typeof ACCOUNT_LINKS)[number][1] | (typeof OPEN_LINKS)[number][1] | (typeof DELETE_ACCOUNT)[1]) => (
     <Pressable
       key={href}
       onPress={() => router.push(href)}
@@ -44,6 +53,30 @@ export default function SettingsScreen() {
       <Ionicons color={theme.colors.secondary} name="chevron-forward" size={16} />
     </Pressable>
   );
+  const webRow = (label: string, url: string) => (
+    <Pressable
+      key={url}
+      accessibilityHint="Opens in the browser"
+      accessibilityRole="link"
+      onPress={() => {
+        void WebBrowser.openBrowserAsync(url).catch(() => {
+          useToast.getState().show('That page could not be opened.');
+        });
+      }}
+      style={{
+        minHeight: 52,
+        paddingHorizontal: theme.spacing.lg,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.border,
+      }}
+    >
+      <Text style={[theme.type.body, { color: theme.colors.text }]}>{label}</Text>
+      <Ionicons color={theme.colors.secondary} name="open-outline" size={16} />
+    </Pressable>
+  );
   return (
     <ScreenContainer>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -53,16 +86,20 @@ export default function SettingsScreen() {
       <View>
         {session ? ACCOUNT_LINKS.map(([label, href]) => row(label, href)) : null}
         {OPEN_LINKS.map(([label, href]) => row(label, href))}
+        {WEB_LINKS.map(([label, url]) => webRow(label, url))}
         {session ? (
-          <Pressable
-            onPress={async () => {
-              await (await getApi()).signOut();
-              router.replace('/');
-            }}
-            style={{ minHeight: 52, paddingHorizontal: theme.spacing.lg, justifyContent: 'center' }}
-          >
-            <Text style={[theme.type.body, { color: theme.colors.text }]}>Sign out</Text>
-          </Pressable>
+          <>
+            <Pressable
+              onPress={async () => {
+                await (await getApi()).signOut();
+                router.replace('/');
+              }}
+              style={{ minHeight: 52, paddingHorizontal: theme.spacing.lg, justifyContent: 'center' }}
+            >
+              <Text style={[theme.type.body, { color: theme.colors.text }]}>Sign out</Text>
+            </Pressable>
+            {row(DELETE_ACCOUNT[0], DELETE_ACCOUNT[1])}
+          </>
         ) : (
           <Pressable
             onPress={() => {

@@ -24,7 +24,8 @@ export function browseCommunities(communities: readonly Community[], query: stri
   const needle = query.trim().toLowerCase();
   const filtered = needle
     ? communities.filter((community) => {
-        const haystack = `${readableCommunityName(community.name)} ${community.name} ${community.slug} ${community.description} ${community.createdByDisplayName ?? ''} ${community.createdByUsername ?? ''}`.toLowerCase();
+        const haystack =
+          `${readableCommunityName(community.name)} ${community.name} ${community.slug} ${community.description} ${community.createdByDisplayName ?? ''} ${community.createdByUsername ?? ''}`.toLowerCase();
         return haystack.includes(needle);
       })
     : [...communities];
@@ -35,8 +36,9 @@ export function browseCommunities(communities: readonly Community[], query: stri
   });
 }
 
-export function memberLabel(count: number): string {
-  if (count === 1) return '1 member';
+/** A handful of people reads as an empty room, so the count stays hidden until then. */
+export function memberLabel(count: number): string | null {
+  if (!Number.isFinite(count) || count < 10) return null;
   return `${count} members`;
 }
 

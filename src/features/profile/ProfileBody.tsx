@@ -90,7 +90,11 @@ export function ProfileBody({ username }: { username: string }) {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.lg }}>
           <UserAvatar name={name} path={person.avatarPath} size={72} />
           <View style={{ flex: 1, gap: 2 }}>
-            <Text accessibilityRole="header" numberOfLines={2} style={[theme.type.title, { color: theme.colors.text, fontSize: 24, lineHeight: 30, fontWeight: '700' }]}>
+            <Text
+              accessibilityRole="header"
+              numberOfLines={2}
+              style={[theme.type.title, { color: theme.colors.text, fontSize: 24, lineHeight: 30, fontWeight: '700' }]}
+            >
               {name}
             </Text>
             <Text numberOfLines={1} style={[theme.type.body, { color: theme.colors.muted }]}>
@@ -191,14 +195,12 @@ export function ProfileBody({ username }: { username: string }) {
           {bodyPreview(comment.body, 220)}
         </Text>
         <View
-          accessibilityLabel={`${comment.upvotes} likes, ${comment.downvotes} dislikes, ${formatFriendlyTime(comment.createdAt)}`}
+          accessibilityLabel={`${comment.upvotes} likes, ${formatFriendlyTime(comment.createdAt)}`}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
         >
           <Ionicons color={theme.colors.muted} name="thumbs-up-outline" size={16} />
-          <Text style={[theme.type.caption, { color: theme.colors.muted }]}>{comment.upvotes ?? 0}</Text>
-          <Ionicons color={theme.colors.muted} name="thumbs-down-outline" size={16} />
           <Text style={[theme.type.caption, { color: theme.colors.muted }]}>
-            {comment.downvotes ?? 0} · {formatFriendlyTime(comment.createdAt)}
+            {comment.upvotes ?? 0} · {formatFriendlyTime(comment.createdAt)}
           </Text>
         </View>
       </Pressable>

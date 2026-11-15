@@ -1,7 +1,7 @@
 import { CURATED_COMMUNITIES } from '@/constants/communities';
 import { COMMUNITY_COLORS, communityColorFor } from '@/constants/communityColors';
 import { communityTopic } from '@/constants/communityTopics';
-import { browseCommunities, groupByTopic, membershipNotice, startedByLabel } from '@/lib/communityBrowse';
+import { browseCommunities, groupByTopic, memberLabel, membershipNotice, startedByLabel } from '@/lib/communityBrowse';
 import { COMMUNITY_ICON_LABELS, COMMUNITY_ICONS } from '@/lib/domain/community';
 import type { Community } from '@/types';
 
@@ -40,9 +40,11 @@ describe('browse communities', () => {
     expect(startedByLabel(community({ id: '4', name: 'Potluck', createdByDisplayName: 'Mira Lane' }))).toBe('Started by Mira Lane');
     expect(membershipNotice('BibleQuestions', true)).toBe('Joined c/Bible Questions');
     expect(membershipNotice('BibleQuestions', false)).toBe('Left c/Bible Questions');
-    const roomsWithPeople = [
-      community({ id: '4', name: 'Potluck', createdByDisplayName: 'Mira Lane', createdByUsername: 'mira_lane' }),
-    ];
+    expect(memberLabel(0)).toBeNull();
+    expect(memberLabel(1)).toBeNull();
+    expect(memberLabel(9)).toBeNull();
+    expect(memberLabel(10)).toBe('10 members');
+    const roomsWithPeople = [community({ id: '4', name: 'Potluck', createdByDisplayName: 'Mira Lane', createdByUsername: 'mira_lane' })];
     expect(browseCommunities(roomsWithPeople, 'mira').map((item) => item.id)).toEqual(['4']);
   });
 
@@ -72,7 +74,18 @@ describe('community colors and icons', () => {
   it('labels every icon and still accepts the original ten', () => {
     expect(COMMUNITY_ICONS.length).toBeGreaterThanOrEqual(30);
     for (const icon of COMMUNITY_ICONS) expect(COMMUNITY_ICON_LABELS[icon]).toBeTruthy();
-    for (const original of ['book-outline', 'sunny-outline', 'people-outline', 'library-outline', 'chatbubbles-outline', 'eye-outline', 'compass-outline', 'heart-outline', 'leaf-outline', 'cafe-outline']) {
+    for (const original of [
+      'book-outline',
+      'sunny-outline',
+      'people-outline',
+      'library-outline',
+      'chatbubbles-outline',
+      'eye-outline',
+      'compass-outline',
+      'heart-outline',
+      'leaf-outline',
+      'cafe-outline',
+    ]) {
       expect(COMMUNITY_ICONS as readonly string[]).toContain(original);
     }
   });

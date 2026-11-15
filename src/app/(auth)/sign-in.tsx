@@ -94,7 +94,7 @@ export default function SignInScreen() {
         })} testID="sign-in-submit" />
         <Link href="/(auth)/forgot-password"><Text style={[theme.type.body, { color: theme.colors.primary }]}>Forgot password</Text></Link>
         <Link href="/(auth)/sign-up"><Text style={[theme.type.body, { color: theme.colors.text }]}>Create an account</Text></Link>
-        <Text onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={[theme.type.body, { color: theme.colors.secondary }]}>Keep browsing</Text>
+        <Text onPress={() => router.dismissTo('/')} style={[theme.type.body, { color: theme.colors.secondary }]}>Keep browsing</Text>
       </View>
     </ScreenContainer>
   );

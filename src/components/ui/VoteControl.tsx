@@ -7,14 +7,12 @@ import type { VoteValue } from '@/types';
 
 export function VoteControl({
   upvotes,
-  downvotes,
   value,
   disabled,
   labeled = false,
   onVote,
 }: {
   upvotes: number;
-  downvotes: number;
   value: VoteValue;
   disabled?: boolean;
   labeled?: boolean;
@@ -46,15 +44,14 @@ export function VoteControl({
         <Text style={count(value === 1, theme.colors.primary)}>{upvotes}</Text>
       </Pressable>
       <Pressable
-        accessibilityLabel={`Thumbs down, ${downvotes}`}
+        accessibilityLabel="Thumbs down"
         accessibilityRole="button"
         accessibilityState={{ selected: value === -1, disabled }}
         disabled={disabled}
         onPress={() => press(-1)}
-        style={side}
+        style={[side, { minWidth: 44, justifyContent: 'center' }]}
       >
         <Ionicons color={value === -1 ? theme.colors.danger : theme.colors.muted} name={value === -1 ? 'thumbs-down' : 'thumbs-down-outline'} size={iconSize} />
-        <Text style={count(value === -1, theme.colors.danger)}>{downvotes}</Text>
       </Pressable>
     </View>
   );

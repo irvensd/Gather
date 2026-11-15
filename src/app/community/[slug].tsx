@@ -6,7 +6,7 @@ import { Pressable, Text, View } from 'react-native';
 import { CommunityAvatar } from '@/components/community/CommunityAvatar';
 import { WeeklyPassage } from '@/components/feed/WeeklyPassage';
 import { readableCommunityName } from '@/constants/communities';
-import { membershipNotice, startedByLabel } from '@/lib/communityBrowse';
+import { memberLabel, membershipNotice, startedByLabel } from '@/lib/communityBrowse';
 import { FeedList } from '@/features/feed/FeedList';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { AppError } from '@/lib/backend/errors';
@@ -83,6 +83,7 @@ export default function CommunityScreen() {
     );
   }
   const item = community.data;
+  const members = memberLabel(item.memberCount);
   const moderates = !!capabilities.data && (capabilities.data.isAdmin || capabilities.data.communityIds.includes(item.id));
 
   return (
@@ -135,8 +136,7 @@ export default function CommunityScreen() {
                 )}
               </Text>
               <Text style={[theme.type.caption, { color: theme.colors.text }]}>
-                {item.memberCount} {item.memberCount === 1 ? 'member' : 'members'}
-                {'  ·  '}
+                {members ? `${members}  ·  ` : null}
                 <Text onPress={() => setRules((value) => !value)} style={{ color: theme.colors.primary, fontWeight: '600' }}>
                   {rules ? 'Hide rules' : 'Rules'}
                 </Text>

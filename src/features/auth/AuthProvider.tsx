@@ -32,20 +32,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let unsubscribe: () => void = () => undefined;
     let active = true;
     void (async () => {
-      const api = await getApi();
-      const current = await api.getSession();
-      if (!active) return;
-      sessionRef.current = current;
-      setSession(current);
-      await loadProfile(current);
-      if (!active) return;
-      setReady(true);
-      unsubscribe = api.onAuthChange((next) => {
-        if ((sessionRef.current?.userId ?? null) !== (next?.userId ?? null)) queryClient.clear();
-        sessionRef.current = next;
-        setSession(next);
-        void loadProfile(next);
-      });
+      try {
+        const api = await getApi();
+        let current: AppSession | null = null;
+        try {
+          current = await api.getSession();
+        } catch {
+          current = null;
+        }
+        if (!active) return;
+        sessionRef.current = current;
+        setSession(current);
+        try {
+          await loadProfile(current);
+        } catch {
+          if (!active) return;
+          setProfile(null);
+        }
+        if (!active) return;
+        setReady(true);
+        unsubscribe = api.onAuthChange((next) => {
+          if ((sessionRef.current?.userId ?? null) !== (next?.userId ?? null)) queryClient.clear();
+          sessionRef.current = next;
+          setSession(next);
+          void loadProfile(next);
+        });
+      } catch {
+        if (!active) return;
+        setReady(true);
+      }
     })();
     return () => {
       active = false;
