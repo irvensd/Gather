@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { randomUUID } from 'expo-crypto';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -46,12 +47,17 @@ export function Discussion({ postId, focusCommentId }: { postId: string; focusCo
     return flattenForDisplay(sortCommentForest(buildCommentForest(source), sort));
   }, [comments.data, focusCommentId, sort]);
 
+  const submission = useRef<{ id: string; userId: string; postId: string } | null>(null);
+  const sending = useRef(false);
   const create = useMutation({
-    mutationFn: async () => {
+    onSettled: () => { sending.current = false; },
+    mutationFn: async (submissionId: string) => {
       const references: ScriptureReference[] = mergeReferences([], body);
-      return (await getApi()).createComment({ postId, parentCommentId: replyToId, body, scriptureReferences: references });
+      return (await getApi()).createComment({ submissionId, postId, parentCommentId: replyToId, body, scriptureReferences: references });
     },
     onSuccess: async () => {
+      submission.current = null;
+      setError(null);
       setBody('');
       setReplyToId(focusCommentId ?? null);
       await client.invalidateQueries({ queryKey: ['comments', postId] });
@@ -201,7 +207,13 @@ export function Discussion({ postId, focusCommentId }: { postId: string; focusCo
                   router.push('/(auth)/sign-in');
                   return;
                 }
-                create.mutate();
+                if (sending.current) return;
+                if (submission.current?.userId !== session.userId || submission.current.postId !== postId) {
+                  submission.current = { id: randomUUID(), userId: session.userId, postId };
+                }
+                sending.current = true;
+                setError(null);
+                create.mutate(submission.current.id);
               }}
               style={{
                 minHeight: 36,

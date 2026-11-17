@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { randomUUID } from 'expo-crypto';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { usePreventRemove } from 'expo-router';
@@ -60,6 +61,7 @@ export function Composer({
   const [referenceDraft, setReferenceDraft] = useState('');
   const [referenceError, setReferenceError] = useState<string | null>(null);
   const [pickedImage, setPickedImage] = useState<string | null | undefined>(startingDraft ? startingDraft.imageUri : undefined);
+  const submissionId = useRef(startingDraft?.submissionId);
   const finished = useRef(false);
   const communities = useQuery({ queryKey: ['communities'], queryFn: async () => (await getApi()).listCommunities() });
   const existing = useQuery({
@@ -116,7 +118,7 @@ export function Composer({
       if (finished.current) return;
       const next = JSON.parse(snapshot) as PostValues & { imageUri: string | null };
       if (isEmptyDraft(next)) useDraft.getState().clearDraft();
-      else useDraft.getState().saveDraft(next);
+      else useDraft.getState().saveDraft({ ...next, submissionId: submissionId.current });
     }, 400);
     return () => clearTimeout(timer);
   }, [snapshot, editing]);
@@ -159,13 +161,14 @@ export function Composer({
   }
 
   function keepDraft() {
-    useDraft.getState().saveDraft({ ...values, imageUri });
+    useDraft.getState().saveDraft({ ...values, imageUri, submissionId: submissionId.current });
     setLeaving(false);
     useToast.getState().show('Draft saved');
     leave();
   }
 
   function startOver() {
+    submissionId.current = undefined;
     useDraft.getState().clearDraft();
     form.reset({ communityId: values.communityId, type: 'discussion', title: '', body: '', scriptureReferences: [] });
     setPickedImage(null);
@@ -206,10 +209,14 @@ export function Composer({
     void form.handleSubmit(
       async (input) => {
         try {
+          if (!editing) {
+            submissionId.current ??= randomUUID();
+            useDraft.getState().saveDraft({ ...input, imageUri, submissionId: submissionId.current });
+          }
           const api = await getApi();
           const post = postId
             ? await api.updatePost(postId, { title: input.title, body: input.body, scriptureReferences: input.scriptureReferences, imageUri })
-            : await api.createPost({ ...input, imageUri });
+            : await api.createPost({ ...input, imageUri, submissionId: submissionId.current });
           release();
           if (!editing) {
             useDraft.getState().clearDraft();

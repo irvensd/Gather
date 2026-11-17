@@ -71,7 +71,7 @@ export interface GatherApi {
   updatePost(id: string, input: { title: string; body: string; scriptureReferences: ScriptureReference[]; imageUri?: string | null }): Promise<PostCard>;
   deletePost(id: string): Promise<void>;
   getComments(postId: string): Promise<Comment[]>;
-  createComment(input: { postId: string; parentCommentId?: string | null; body: string; scriptureReferences: ScriptureReference[] }): Promise<Comment>;
+  createComment(input: { submissionId?: string; postId: string; parentCommentId?: string | null; body: string; scriptureReferences: ScriptureReference[] }): Promise<Comment>;
   deleteComment(id: string): Promise<void>;
   votePost(postId: string, value: VoteValue): Promise<VoteResult>;
   voteComment(commentId: string, value: VoteValue): Promise<VoteResult>;

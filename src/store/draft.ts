@@ -5,6 +5,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import type { PostType, ScriptureReference } from '@/types';
 
 export interface PostDraft {
+  submissionId?: string;
   communityId: string;
   type: PostType;
   title: string;

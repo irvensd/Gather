@@ -49,7 +49,7 @@ function withPhotos(posts: RawPost[] | null | undefined): PostCard[] {
 }
 
 /** Upload a phone photo into the author's folder. A photo already stored there is kept as its path. */
-async function storePostPhoto(uri: string | null | undefined): Promise<string | null> {
+async function storePostPhoto(uri: string | null | undefined, submissionId?: string): Promise<string | null> {
   if (!uri) return null;
   const kept = storedPostPhotoPath(uri);
   if (kept) return kept;
@@ -63,10 +63,13 @@ async function storePostPhoto(uri: string | null | undefined): Promise<string | 
   });
   const response = await fetch(image.uri);
   const bytes = await response.arrayBuffer();
-  const path = `${userId}/${Crypto.randomUUID()}.jpg`;
+  const photoId = submissionId
+    ? `${submissionId}-${await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, uri)}`
+    : Crypto.randomUUID();
+  const path = `${userId}/${photoId}.jpg`;
   const { error } = await getSupabase().storage.from('post-photos').upload(path, bytes, {
     contentType: 'image/jpeg',
-    upsert: false,
+    upsert: !!submissionId,
   });
   if (error) throw mapServerError(error);
   return path;
@@ -192,7 +195,7 @@ export function createSupabaseApi(): GatherApi {
     },
     async createPost(input: CreatePostInput) {
       const { imageUri, ...rest } = input;
-      const imagePath = await storePostPhoto(imageUri);
+      const imagePath = await storePostPhoto(imageUri, input.submissionId);
       return withPhoto(await rpc<RawPost>('create_post', { p_input: { ...rest, imagePath } }));
     },
     async updatePost(id, input) {

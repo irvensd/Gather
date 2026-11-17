@@ -670,6 +670,13 @@ export class DemoStore implements GatherApi {
   createPost(input: CreatePostInput) {
     return this.enqueue(async () => {
       const user = this.requireUser();
+      if (input.submissionId) {
+        const previous = this.state.posts.find((item) => item.authorId === user.id && item.submissionId === input.submissionId);
+        if (previous) {
+          await this.persist();
+          return this.postCard(previous, user.id);
+        }
+      }
       const parsed = postSchema.safeParse(input);
       if (!parsed.success) throw new AppError(parsed.error.issues[0]?.message ?? 'INVALID_INPUT', 'validation');
       if (!this.state.communities.some((community) => community.id === input.communityId)) throw new AppError('NOT_FOUND', 'not_found');
@@ -679,6 +686,7 @@ export class DemoStore implements GatherApi {
       const now = new Date().toISOString();
       const post: DemoPost = {
         id: Crypto.randomUUID(),
+        submissionId: input.submissionId,
         communityId: input.communityId,
         authorId: user.id,
         type: input.type,
@@ -736,9 +744,16 @@ export class DemoStore implements GatherApi {
     });
   }
 
-  createComment(input: { postId: string; parentCommentId?: string | null; body: string; scriptureReferences: ScriptureReference[] }) {
+  createComment(input: { submissionId?: string; postId: string; parentCommentId?: string | null; body: string; scriptureReferences: ScriptureReference[] }) {
     return this.enqueue(async () => {
       const user = this.requireUser();
+      if (input.submissionId) {
+        const previous = this.state.comments.find((item) => item.authorId === user.id && item.submissionId === input.submissionId);
+        if (previous) {
+          await this.persist();
+          return this.commentCard(previous, user.id);
+        }
+      }
       const parsed = commentSchema.safeParse({ body: input.body, scriptureReferences: input.scriptureReferences });
       if (!parsed.success) throw new AppError(parsed.error.issues[0]?.message ?? 'INVALID_INPUT', 'validation');
       const post = this.state.posts.find((item) => item.id === input.postId);
@@ -754,6 +769,7 @@ export class DemoStore implements GatherApi {
       const now = new Date().toISOString();
       const comment: DemoComment = {
         id: Crypto.randomUUID(),
+        submissionId: input.submissionId,
         postId: post.id,
         parentCommentId: parent?.id ?? null,
         authorId: user.id,

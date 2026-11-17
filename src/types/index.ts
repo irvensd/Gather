@@ -204,6 +204,7 @@ export interface FeedQuery {
 }
 
 export interface CreatePostInput {
+  submissionId?: string;
   communityId: string;
   type: PostType;
   title: string;

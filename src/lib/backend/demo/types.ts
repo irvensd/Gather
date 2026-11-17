@@ -24,6 +24,7 @@ export interface DemoUser {
 }
 
 export interface DemoPost {
+  submissionId?: string;
   id: string;
   communityId: string;
   authorId: string | null;
@@ -39,6 +40,7 @@ export interface DemoPost {
 }
 
 export interface DemoComment {
+  submissionId?: string;
   id: string;
   postId: string;
   parentCommentId: string | null;
