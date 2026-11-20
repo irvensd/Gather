@@ -8,6 +8,7 @@ import { WeeklyPassage } from '@/components/feed/WeeklyPassage';
 import { readableCommunityName } from '@/constants/communities';
 import { memberLabel, membershipNotice, startedByLabel } from '@/lib/communityBrowse';
 import { FeedList } from '@/features/feed/FeedList';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { AppError } from '@/lib/backend/errors';
 import { IconButton } from '@/components/ui/IconButton';
@@ -16,6 +17,7 @@ import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { SegmentedFilter } from '@/components/ui/SegmentedFilter';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { getApi } from '@/lib/backend';
+import { usePending } from '@/store/pending';
 import { useToast } from '@/store/toast';
 import { useTheme } from '@/theme/ThemeProvider';
 import type { Community, FeedFilter } from '@/types';
@@ -26,6 +28,7 @@ export default function CommunityScreen() {
   const { session } = useAuth();
   const [sort, setSort] = useState<FeedFilter>('new');
   const [rules, setRules] = useState(false);
+  const [joinPrompt, setJoinPrompt] = useState(false);
   const client = useQueryClient();
   const community = useQuery({ queryKey: ['community', slug], queryFn: async () => (await getApi()).getCommunity(slug) });
   const capabilities = useQuery({ queryKey: ['capabilities'], enabled: !!session, queryFn: async () => (await getApi()).getCapabilities() });
@@ -83,6 +86,7 @@ export default function CommunityScreen() {
     );
   }
   const item = community.data;
+  const joined = !!session && item.joined;
   const members = memberLabel(item.memberCount);
   const moderates = !!capabilities.data && (capabilities.data.isAdmin || capabilities.data.communityIds.includes(item.id));
 
@@ -94,29 +98,33 @@ export default function CommunityScreen() {
         <Text numberOfLines={1} style={[theme.type.section, { color: theme.colors.text, flex: 1, marginLeft: 8 }]}>
           {readableCommunityName(item.name)}
         </Text>
-        {session ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={item.joined ? 'Leave community' : 'Join community'}
-            disabled={membership.isPending}
-            onPress={() => membership.mutate(!item.joined)}
-            style={{
-              minHeight: 36,
-              paddingHorizontal: 14,
-              borderRadius: theme.radius.pill,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: item.joined ? 'transparent' : theme.colors.primary,
-              borderWidth: item.joined ? 1 : 0,
-              borderColor: theme.colors.border,
-            }}
-            testID="community-join"
-          >
-            <Text style={[theme.type.caption, { color: item.joined ? theme.colors.text : theme.colors.onPrimary, fontWeight: '600' }]}>
-              {item.joined ? 'Leave' : 'Join'}
-            </Text>
-          </Pressable>
-        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={joined ? 'Leave community' : 'Join community'}
+          disabled={membership.isPending}
+          onPress={() => {
+            if (!session) {
+              setJoinPrompt(true);
+              return;
+            }
+            membership.mutate(!item.joined);
+          }}
+          style={{
+            minHeight: 44,
+            paddingHorizontal: 14,
+            borderRadius: theme.radius.pill,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: joined ? 'transparent' : theme.colors.primary,
+            borderWidth: joined ? 1 : 0,
+            borderColor: theme.colors.border,
+          }}
+          testID="community-join"
+        >
+          <Text style={[theme.type.caption, { color: joined ? theme.colors.text : theme.colors.onPrimary, fontWeight: '600' }]}>
+            {joined ? 'Leave' : 'Join'}
+          </Text>
+        </Pressable>
       </View>
       <FeedList
         communityId={item.id}
@@ -179,6 +187,18 @@ export default function CommunityScreen() {
             </View>
           </View>
         }
+      />
+      <ConfirmationDialog
+        visible={joinPrompt && !session}
+        title={`Join ${readableCommunityName(item.name)}`}
+        message="You need an account to join a community. Sign in to join and see its posts in your Following feed."
+        confirmLabel="Sign in"
+        onCancel={() => setJoinPrompt(false)}
+        onConfirm={() => {
+          setJoinPrompt(false);
+          usePending.getState().setPending(`/community/${item.slug}`, { type: 'join', communityId: item.id, join: true });
+          router.push('/(auth)/sign-in');
+        }}
       />
     </ScreenContainer>
   );

@@ -12,6 +12,7 @@ import { RichText } from '@/components/scripture/RichText';
 import { ScriptureReferenceList } from '@/components/scripture/ScriptureReference';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconButton } from '@/components/ui/IconButton';
+import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 import { SaveButton } from '@/components/ui/SaveButton';
 import { SegmentedFilter } from '@/components/ui/SegmentedFilter';
@@ -100,7 +101,7 @@ export function Discussion({ postId, focusCommentId }: { postId: string; focusCo
             <Text style={[theme.type.body, { color: theme.colors.text }]}>
               {postByline(item.type, item.authorDisplayName || item.authorUsername || 'Deleted user')} · {formatFriendlyTime(item.createdAt)}
             </Text>
-            <Text style={[theme.type.postTitle, { color: theme.colors.text }]}>{item.title}</Text>
+            <Text accessibilityRole="header" style={[theme.type.postTitle, { color: theme.colors.text }]}>{item.title}</Text>
             {item.status === 'published' ? (
               <RichText onReference={openReference} text={item.body} />
             ) : (
@@ -185,6 +186,17 @@ export function Discussion({ postId, focusCommentId }: { postId: string; focusCo
           </View>
         ) : null}
         {session && error ? <Text style={[theme.type.caption, { color: theme.colors.danger }]}>{error}</Text> : null}
+        {!session ? (
+          <PrimaryButton
+            disabled={locked}
+            label={locked ? 'Comments are closed' : 'Sign in to reply'}
+            onPress={() => {
+              const destination = focusCommentId ? `/post/${postId}/replies/${focusCommentId}` : `/post/${postId}`;
+              usePending.getState().setPending(destination);
+              router.push('/(auth)/sign-in');
+            }}
+          />
+        ) : null}
         {session ? (
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
             <TextInput

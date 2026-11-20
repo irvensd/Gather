@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Text, TextInput, View } from 'react-native';
+import { ScrollView, Text, TextInput, View } from 'react-native';
 
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
@@ -26,16 +26,23 @@ export default function SignInScreen() {
       borderRadius: theme.radius.md,
       backgroundColor: theme.colors.surface,
       paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.md,
     },
   ];
   return (
-    <ScreenContainer>
-      <View style={{ padding: theme.spacing.xl, gap: theme.spacing.lg }}>
+    <ScreenContainer edges={['top', 'left', 'right', 'bottom']}>
+      <ScrollView
+        automaticallyAdjustKeyboardInsets
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: theme.spacing.xl, gap: theme.spacing.lg }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         <Text style={[theme.type.title, { color: theme.colors.text }]}>Sign in</Text>
-        <Text style={[theme.type.body, { color: theme.colors.secondary }]}>An account is only for posting, replying, voting, saving, and reporting. You can keep reading without one.</Text>
+        <Text style={[theme.type.body, { color: theme.colors.secondary }]}>Sign in to join the conversation.</Text>
         {backendMode() === 'demo' ? (
           <Text style={[theme.type.caption, { color: theme.colors.secondary }]}>
-            This phone has sample accounts because Supabase is not connected. Try mira@demo.gather or rowan@demo.gather. Password: gather-demo. Rowan can review reports. Or create your own account. It stays on this device.
+            Demo accounts: mira@demo.gather or rowan@demo.gather (moderator). Password: gather-demo.
           </Text>
         ) : null}
         <Controller
@@ -68,6 +75,8 @@ export default function SignInScreen() {
               <Text style={[theme.type.body, { color: theme.colors.text, fontWeight: '600' }]}>Password</Text>
               <TextInput
                 accessibilityLabel="Password"
+                autoCapitalize="none"
+                autoComplete="current-password"
                 onChangeText={field.onChange}
                 placeholder="Your password"
                 placeholderTextColor={theme.colors.secondary}
@@ -95,7 +104,7 @@ export default function SignInScreen() {
         <Link href="/(auth)/forgot-password"><Text style={[theme.type.body, { color: theme.colors.primary }]}>Forgot password</Text></Link>
         <Link href="/(auth)/sign-up"><Text style={[theme.type.body, { color: theme.colors.text }]}>Create an account</Text></Link>
         <Text onPress={() => router.dismissTo('/')} style={[theme.type.body, { color: theme.colors.secondary }]}>Keep browsing</Text>
-      </View>
+      </ScrollView>
     </ScreenContainer>
   );
 }

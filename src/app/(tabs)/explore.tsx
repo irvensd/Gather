@@ -183,7 +183,7 @@ export default function ExploreScreen() {
             <Text numberOfLines={1} style={[theme.type.body, { color: theme.colors.text, fontWeight: '600' }]}>
               {readableCommunityName(community.name)}
             </Text>
-            <Text numberOfLines={1} style={[theme.type.body, { color: theme.colors.muted }]}>
+            <Text numberOfLines={2} style={[theme.type.body, { color: theme.colors.muted }]}>
               {community.description}
             </Text>
             {members ? (

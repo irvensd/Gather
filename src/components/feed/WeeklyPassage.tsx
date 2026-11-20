@@ -34,7 +34,7 @@ export function WeeklyPassage() {
   return (
     <View style={{ marginHorizontal: theme.spacing.lg, marginBottom: theme.spacing.md, backgroundColor: theme.colors.surface, borderRadius: theme.radius.lg, paddingHorizontal: theme.spacing.xl, paddingVertical: theme.spacing.xxl, gap: theme.spacing.sm }}>
       <Text style={[theme.type.body, { color: theme.colors.primary, fontWeight: '600' }]}>This week</Text>
-      <Text style={[theme.type.postTitle, { color: theme.colors.text }]}>{passage.title}</Text>
+      <Text style={[theme.type.section, { color: theme.colors.text }]}>{passage.title}</Text>
       <Pressable
         accessibilityRole="button"
         onPress={() => {

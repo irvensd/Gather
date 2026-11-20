@@ -71,7 +71,7 @@ export const type = {
   display: { fontFamily, fontSize: 36, lineHeight: 42, fontWeight: '700' },
   title: { fontFamily, fontSize: 22, lineHeight: 28, fontWeight: '700' },
   section: { fontFamily, fontSize: 17, lineHeight: 22, fontWeight: '600' },
-  postTitle: { fontFamily, fontSize: 17, lineHeight: 22, fontWeight: '600' },
+  postTitle: { fontFamily, fontSize: 20, lineHeight: 26, fontWeight: '700' },
   body: { fontFamily, fontSize: 16, lineHeight: 22, fontWeight: '400' },
   caption: { fontFamily, fontSize: 13, lineHeight: 18, fontWeight: '400' },
   label: { fontFamily, fontSize: 12, lineHeight: 16, fontWeight: '600' },

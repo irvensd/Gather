@@ -88,7 +88,7 @@ export function PostCard({
         testID="post-card"
         style={({ pressed }) => ({ gap: theme.spacing.sm, backgroundColor: pressed ? theme.colors.highlight : 'transparent' })}
       >
-        <Text style={[theme.type.postTitle, { color: theme.colors.text, fontSize: 20, lineHeight: 26, fontWeight: '700' }]}>{post.title}</Text>
+        <Text style={[theme.type.postTitle, { color: theme.colors.text }]}>{post.title}</Text>
         {post.body ? (
           <Text numberOfLines={2} style={[theme.type.body, { color: theme.colors.muted }]}>
             {bodyPreview(post.body, 140)}
